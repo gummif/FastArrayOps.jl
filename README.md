@@ -10,8 +10,8 @@ Different or new implementations or benchmark cases are welcome as issues or pul
 
 Currently implemented:
 
-* fast_scale!(x, ix, a, n, incx)
-* fast_scale!(x, ix, y, iy, a, n, incx, incy)
+* `fast_scale!(x, ix, a, n, incx)`
+* `fast_scale!(x, ix, y, iy, a, n, incx, incy)`
 
 See license (MIT) in LICENSE.md.
 
@@ -59,12 +59,12 @@ Benchmarks
 
 Benchmarks with `Float64` Arrays on Intel Core i7 3612QM 2,1-3,1GHz quad core 64bit. See directory `/perf` for details. Out-of-place functions are marked with `oop`.
 
+##### Op `x = a*x`
 ![Scale1](/perf/scale_incx1.png)
-
 ![Scale12](/perf/scale_incxnu.png)
 
+##### Op `x = a*y`
 ![Scale1](/perf/scale_oop_incx1.png)
-
 ![Scale12](/perf/scale_oop_incxnu.png)
 
 
