@@ -1,14 +1,14 @@
 
-# assume incx == 1
+# assume ix = 1 and incx = 1
 
 calc(::BM_TEST, ::FUNT, x, v, incx) = calc(BM_JBase1(), FUNT(), x, v, incx)
 calc(::BM_JBase1, ::FUNT, x, v, incx) = scale!(x, v)
 calc(::BM_JBase2, ::FUNT, x, v, incx) = scale!(v, x)
 calc(::BM_BLAS, ::FUNT, x, v, incx) = BLAS.scal!(length(x), v, x, incx)
 calc(::BM_Broadcast, ::FUNT, x, v, incx) = broadcast!(.*, x, x, v)
-calc(::BM_Forloop, ::FUNT, x, v, incx) = scaleloop1(x, v, length(x))
-function scaleloop1(x, v, n)
-    @inbounds for i=1:n
+calc(::BM_Forloop, ::FUNT, x, v, incx) = scaleloop1(x, v)
+function scaleloop1(x::Array, v, n)
+    @inbounds for i=1:length(x)
         x[i] *= v
     end
     return x
