@@ -40,11 +40,25 @@ function fast_gen_scal_oop{T<:BlasFloat}(x::Array{T}, y::Array{T}, a::T, nel::In
     end
     return 0
 end
+function fast_inc1_scal_oop{T<:BlasFloat}(x::Array{T}, y::Array{T}, a::T, nel::Int, ix::Int, iy::Int)
+    if iy == ix
+        @inbounds for i = ix:nel+ix-1
+            x[i] = y[i]*a
+        end
+    else
+        d::Int = iy-ix
+        @inbounds for i = ix:nel+ix-1
+            x[i] = y[d+i]*a
+        end
+    end
+    return 0
+end
 
 ## cutoff constants
 
 const NLIM_SCALE = 13
-
+const NLIM_SCALE_OOP1 = 80
+const NLIM_SCALE_OOP2 = 100000
 
 ## FAO scale methods
 
@@ -81,8 +95,13 @@ function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, a::$elty, n::I
         ix-1+n*abs(incx) <= length(x) || throw(BoundsError())
         iy-1+n*abs(incy) <= length(y) || throw(BoundsError())
     end
-    if n < $NLIM_SCALE*max(abs(incx),abs(incy))
-        fast_gen_scal_oop(x, y, a, n, ix, incx, iy, incy)
+    mul = max(abs(incx),abs(incy))
+    if n < $NLIM_SCALE_OOP1*mul || n*mul > $NLIM_SCALE_OOP2 #*mul
+        if incx*incy == 1
+            fast_inc1_scal_oop(x, y, a, n, ix, iy)
+        else
+            fast_gen_scal_oop(x, y, a, n, ix, incx, iy, incy)
+        end
     else
         #BLAS.blascopy!(n, pointer(y, iy), incy, pointer(x, ix), incx)
         #BLAS.scal!(n, a, pointer(x, ix), abs(incx))
@@ -99,7 +118,7 @@ function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, a::$elty, n::I
     return x
 end
 
-function ($f){T<:BlasFloat}(x::Array{T}, ix::Int, y::Array{T}, iy::Int, n::Int, incx::Int=1, incy::Int=1)
+function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, n::Int, incx::Int=1, incy::Int=1)
     if !($isunsafe)
         (0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
         (0 < ix && 0 < iy) || throw(BoundsError())
