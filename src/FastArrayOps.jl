@@ -21,53 +21,59 @@ export fast_scale!, unsafe_fast_scale!
 ## copy
 # fast_copy!(x, ix, y, iy, n, incx, incy)
 
+function fast_gen_scal{T<:BlasFloat}(x::Array{T}, a::T, n::Int, ix::Int, incx::Int)
+    @inbounds for i = ix:incx:n
+        x[i] *= a
+    end
+    return 0
+end
+
 const NLIM_SCALE = 13
 for (f, isunsafe) in ( (:fast_scale!, false), (:unsafe_fast_scale!, true) )
 @eval begin
 
-function ($f){T<:BlasFloat}(x::Array{T}, ix::Integer, a::T, n::Integer, incx::Integer=1)
-	if !($isunsafe)
-		0 < incx || throw(ArgumentError("non-positive increment"))
-		0 < ix || throw(BoundsError())
-		ix-1+n*incx <= length(x) || throw(BoundsError())
-	end
-	if n < $NLIM_SCALE && incx == 1
-        @inbounds for i = ix:ix-1+n
-            x[i] *= a
-        end
+function ($f){T<:BlasFloat}(x::Array{T}, ix::Int, a::T, n::Int, incx::Int=1)
+    if !($isunsafe)
+        0 < incx || throw(ArgumentError("non-positive increment"))
+        0 < ix || throw(BoundsError())
+        ix-1+n*incx <= length(x) || throw(BoundsError())
+    end
+    if n < $NLIM_SCALE*incx #|| n < (incx-1)*2000  # && incx == 1  #
+        fast_gen_scal(x, a, ix-1+n*incx, ix, incx)  #ix:ix-1+n
+        #fast_gen_scal(x, a, ix-1+n, ix, incx)
     else
-    	BLAS.scal!(n, a, pointer(x, ix), incx)
+        BLAS.scal!(n, a, pointer(x, ix), incx)
     end
     return x
 end
 
-function ($f){T<:BlasFloat}(x::Array{T}, ix::Integer, y::Array{T}, iy::Integer, a::T, n::Integer, incx::Integer=1, incy::Integer=1)
-	if !($isunsafe)
-		(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
-		(0 < ix && 0 < iy) || throw(BoundsError())
-		ix-1+n*abs(incx) <= length(x) || throw(BoundsError())
-		iy-1+n*abs(incy) <= length(y) || throw(BoundsError())
-	end
-	# or scale by 0.0 then axpy #BLAS.axpy!(n, one(T), pointer(x, ix), incx)
-	BLAS.blascopy!(n, pointer(y, iy), incy, pointer(x, ix), incx)
-	BLAS.scal!(n, a, pointer(x, ix), abs(incx))
-	return x
+function ($f){T<:BlasFloat}(x::Array{T}, ix::Int, y::Array{T}, iy::Int, a::T, n::Int, incx::Int=1, incy::Int=1)
+    if !($isunsafe)
+        (0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+        (0 < ix && 0 < iy) || throw(BoundsError())
+        ix-1+n*abs(incx) <= length(x) || throw(BoundsError())
+        iy-1+n*abs(incy) <= length(y) || throw(BoundsError())
+    end
+    # or scale by 0.0 then axpy #BLAS.axpy!(n, one(T), pointer(x, ix), incx)
+    BLAS.blascopy!(n, pointer(y, iy), incy, pointer(x, ix), incx)
+    BLAS.scal!(n, a, pointer(x, ix), abs(incx))
+    return x
 end
 
-function ($f){T<:BlasFloat}(x::Array{T}, ix::Integer, y::Array{T}, iy::Integer, n::Integer, incx::Integer=1, incy::Integer=1)
-	if !($isunsafe)
-		(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
-		(0 < ix && 0 < iy) || throw(BoundsError())
-		ix-1+n*abs(incx) <= length(x) || throw(BoundsError())
-		iy-1+n*abs(incy) <= length(y) || throw(BoundsError())
-	end
-	# TBMV,  GBMV, SBMV
-	# scale 0
-	# alpha=0, beta=0
-	#BLAS.sbmv!('U', k::Integer,
+function ($f){T<:BlasFloat}(x::Array{T}, ix::Int, y::Array{T}, iy::Int, n::Int, incx::Int=1, incy::Int=1)
+    if !($isunsafe)
+        (0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+        (0 < ix && 0 < iy) || throw(BoundsError())
+        ix-1+n*abs(incx) <= length(x) || throw(BoundsError())
+        iy-1+n*abs(incy) <= length(y) || throw(BoundsError())
+    end
+    # TBMV,  GBMV, SBMV
+    # scale 0
+    # alpha=0, beta=0
+    #BLAS.sbmv!('U', k::Int,
     #                  alpha::($elty), A::StridedMatrix{$elty}, x::StridedVector{$elty}, 
     #                  beta::($elty), y::StridedVector{$elty})
-	return x
+    return x
 end
 
 end # eval begin
