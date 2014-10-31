@@ -4,6 +4,40 @@ const libblas = Base.libblas_name
 
 export fast_scale!, unsafe_fast_scale!
 export @fast_check1, @fast_check2
+export nmax2nel, nel2nmax, fast_args2range, fast_range2args
+
+function nmax2nel(i::Int, inc::Int, nmax::Int)
+    @assert 0 < i
+    nmax < i && return zero(Int)
+    nel = div(nmax - i, abs(inc)) + one(Int)
+    while nel2nmax(i, inc, nel) > nmax
+        nel -= one(Int)
+    end
+    return nel
+end
+function nel2nmax(i::Int, inc::Int, nel::Int)
+    @assert 0 < i
+    nel < 0 && return i - one(Int)
+    return i - one(Int) + nel*abs(inc)
+end
+function fast_args2range(i::Int, inc::Int, n::Int)
+    @assert 0 < i
+    r = i:abs(inc):nel2nmax(i, abs(inc), n)
+    if inc < 0
+        r = reverse(r)
+    end
+    return r
+end
+function fast_range2args(r::Range)
+    inc = step(r)
+    if inc > 0
+        return (first(r), inc, length(r))
+    else
+        return (last(r), inc, length(r))
+    end
+end
+
+
 
 ## cutoff constants
 
@@ -19,11 +53,12 @@ include("macros.jl")
 
 ## FAO scale methods
 
-for (f, isunsafe) in ( (:fast_scale!, false), (:unsafe_fast_scale!, true) )
+
 for (fscal, fcopy, elty) in ((:dscal_,:dcopy_,:Float64), 
                              (:sscal_,:scopy_,:Float32),
                              (:zscal_,:zcopy_,:Complex128), 
                              (:cscal_,:ccopy_,:Complex64))
+for (f, isunsafe) in ( (:fast_scale!, false), (:unsafe_fast_scale!, true) )
 @eval begin
 
 
@@ -100,7 +135,6 @@ end
 
 
 
-
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, n::Int, incx::Int, incy::Int)
     if !($isunsafe)
         (0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
@@ -119,7 +153,65 @@ end
 
 end # eval begin
 end # for
+
+
+for (f, isunsafe) in ( (:fast_copy!, false), (:unsafe_fast_copy!, true) )
+@eval begin
+
+# x = y
+# general
+function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, n::Int)
+    $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
+    mul = max(abs(incx), abs(incy))
+    if n < $NLIM_SCALE_OOP1*mul || n*mul > $NLIM_SCALE_OOP2
+        @copy_foroop(x, ix, incx, y, iy, incy, n, $FAO_ZERO, $FAO_ONE)
+    else
+        @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incy, n)
+    end
+    return x
+end
+# inceq
+function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, n::Int)
+    $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
+    mul = abs(incx)
+    if n < $NLIM_SCALE_OOP1*mul || n*mul > $NLIM_SCALE_OOP2
+        @copy_foroop_inceq(x, ix, incx, y, iy, n, $FAO_ONE)
+    else
+        @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incx, n)
+    end
+    return x
+end
+# inc1
+function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, n::Int)
+    $isunsafe || @fast_check2(x, ix, $FAO_ONE, y, iy, $FAO_ONE, n)
+    if n < $NLIM_SCALE_OOP1 || n > $NLIM_SCALE_OOP2
+        @copy_foroop_inc1(x, ix, y, iy, n, $FAO_ONE)
+    else
+        @copy_blas($(string(fcopy)), $(elty), x, ix, $FAO_ONE, y, iy, $FAO_ONE, n)
+    end
+    return x
+end
+# inc1ieq
+function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, n::Int)
+    $isunsafe || @fast_check2(x, ix, $FAO_ONE, y, ix, $FAO_ONE, n)
+    if n < $NLIM_SCALE_OOP1 || n > $NLIM_SCALE_OOP2
+        @copy_foroop_inc1ieq(x, ix, y, n, $FAO_ONE)
+    else
+        @copy_blas($(string(fcopy)), $(elty), x, ix, $FAO_ONE, y, ix, $FAO_ONE, n)
+    end
+    return x
+end
+
+
+end # eval begin
 end # for
+
+end # for
+
+
+
+
+
 
 
 end # module

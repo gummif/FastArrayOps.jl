@@ -8,7 +8,10 @@ Contains a large collection of benchmarks in `/perf`. They (should) show that th
 
 Different or new implementations or benchmark cases are welcome as issues or pull requests.
 
-* currently in developement only with the scale by scalar methods implemented *
+Currently in developement. Operations implemented: 
+
+* scale by scalar
+* copy array
 
 See license (MIT) in LICENSE.md.
 
@@ -31,7 +34,7 @@ API
 * `x,y,z` are Arrays of any size, `a` is a scalar, `incx` is the stride of `x`, `ix` is the starting index of `x`, `n` is the number of elements to use or modify. A negative stride `incx` reverses the indexing order.
 * All functions `f` have an `unsafe_f` version without any argument or bounds checks (e.g. `unsafe_fast_scale!`).
 
-#### General methods
+#### General methods (slower)
 ```julia
 # scale by scalar
 fast_scale!(x, ix, incx, a, n)                          # x = a*x
@@ -50,9 +53,16 @@ fast_add!(x, ix, incx, y, iy, incy, a, n)               # x = x + a*y
 fast_add!(x, ix, incx, y, iy, incy, z, iz, incz, a, n)  # x = y + a*z
 # copy array
 fast_copy!(x, ix, incx, y, iy, incy, n)                 # x = y
-# bounds check macros
-@fast_check1(x, ix, incx, n)
+```
+
+```julia
+# utilities
+@fast_check1(x, ix, incx, n)    # bounds check macros
 @fast_check2(x, ix, incx, y, iy, incy, n)
+nmax2nel(i, inc, nmax)          # number of elements n for FAO
+nel2nmax(i, inc, nel)           # maximum index for nmax2nel giving nel
+fast_args2range(i, inc, n)      # convert FAO arguments to index range
+fast_range2args(r)              # inverse of fast_args2range
 ```
 
 #### Faster Methods
@@ -77,6 +87,8 @@ Benchmarks with `Float64` Arrays on Intel Core i7 3612QM 2,1-3,1GHz quad core 64
 ##### Op `x = a*x`
 ![Scale1](/perf/scale_incx1.png)
 ![Scale12](/perf/scale_incxnu.png)
+
+Scale columns of a `n` by `16` matrix by the first row elements.
 ![Scale2d](/perf/scale_2d_incx1.png)
 
 ##### Op `x = a*y`
