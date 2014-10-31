@@ -33,7 +33,7 @@ end
 calc(::BM_FAO, ::FUNT, x, y, v, n, nel, ix, incx) = unsafe_fast_scale!(x, ix, incx, y, ix, v, nel)
 
 
-Base.start{T}(p::BenchCase{T,FUNT}, n::Int) = (rand(n), rand(n), float64(1.000001), n, div(n-2,40)+1, 2, 40)
+Base.start{T}(p::BenchCase{T,FUNT}, n::Int) = (rand(n), rand(n), float64(1.000001), n, nmax2nel(2, 40, n), 2, 40)
 function Base.run{Op,FUNT}(p::BenchCase{Op,FUNT}, n::Int, s)  # bench type, config, start value
     s::(Vector{Float64}, Float64, Int, Int, Int, Int)
     x, y, v, n, nel, ix, incx = s
