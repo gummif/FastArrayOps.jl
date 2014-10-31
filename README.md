@@ -8,10 +8,7 @@ Contains a large collection of benchmarks in `/perf`. They (should) show that th
 
 Different or new implementations or benchmark cases are welcome as issues or pull requests.
 
-Currently implemented:
-
-* `fast_scale!(x, ix, a, n, incx)`
-* `fast_scale!(x, ix, y, iy, a, n, incx, incy)`
+* currently in developement only with the scale by scalar methods implemented *
 
 See license (MIT) in LICENSE.md.
 
@@ -34,25 +31,43 @@ API
 * `x,y,z` are Arrays of any size, `a` is a scalar, `incx` is the stride of `x`, `ix` is the starting index of `x`, `n` is the number of elements to use or modify. A negative stride `incx` reverses the indexing order.
 * All functions `f` have an `unsafe_f` version without any argument or bounds checks (e.g. `unsafe_fast_scale!`).
 
+#### General methods
 ```julia
 # scale by scalar
-fast_scale!(x, ix, a, n, incx)                          # x = a*x
-fast_scale!(x, ix, y, iy, a, n, incx, incy)             # x = a*y
+fast_scale!(x, ix, incx, a, n)                          # x = a*x
+fast_scale!(x, ix, incx, y, iy, incy, a, n)             # x = a*y
 # scale by array
-fast_scale!(x, ix, y, iy, n, incx, incy)                # x = x.*y
-fast_scale!(x, ix, y, iy, z, iz, n, incx, incy, incz)   # x = y.*z
+fast_scale!(x, ix, incx, y, iy, incy, n)                # x = x.*y
+fast_scale!(x, ix, incx, y, iy, incy, z, iz, incz, n)   # x = y.*z
 # add scalar
-fast_add!(x, ix, a, n, incx)                            # x = x + a
-fast_add!(x, ix, y, iy, a, n, incx, incy)               # x = y + a
+fast_add!(x, ix, incx, a, n)                            # x = x + a
+fast_add!(x, ix, incx, y, iy, incy, a, n)               # x = y + a
 # add array
-fast_add!(x, ix, y, iy, n, incx, incy)                  # x = x + y
-fast_add!(x, ix, y, iy, z, iz, n, incx, incy, incz)     # x = y + z
+fast_add!(x, ix, incx, y, iy, incy, n)                  # x = x + y
+fast_add!(x, ix, incx, y, iy, incy, z, iz, incz, n)     # x = y + z
 # add array times scalar
-fast_add!(x, ix, a, y, iy, n, incx, incy)               # x = x + a*y
-fast_add!(x, ix, y, iy, a, z, iz, n, incx, incy, incz)  # x = y + a*z
+fast_add!(x, ix, incx, y, iy, incy, a, n)               # x = x + a*y
+fast_add!(x, ix, incx, y, iy, incy, z, iz, incz, a, n)  # x = y + a*z
 # copy array
-fast_copy!(x, ix, y, iy, n, incx, incy)                 # x <- y
+fast_copy!(x, ix, incx, y, iy, incy, n)                 # x = y
+# bounds check macros
+@fast_check1(x, ix, incx, n)
+@fast_check2(x, ix, incx, y, iy, incy, n)
 ```
+
+#### Faster Methods
+
+There are faster methods than the above general methods, which are called by supplying fewer arguments, meaning a more specific and faster method. Method kinds:
+
+* *general*
+    * `fast_scale!(x, ix, incx, y, iy, incy, a, n)`
+* *inceq*: all `inc` arguments are equal, exclude all but `incx` 
+    * `fast_scale!(x, ix, incx, y, iy, a, n)`
+* *inc1*: all `inc` arguments are equal to 1, exclude all `inc`
+    * `fast_scale!(x, ix, y, iy, a, n)`
+* *inc1ieq*: all `inc` arguments are equal to 1 and all `i` arguments are equal, exclude all `inc` and exclude all but `ix`
+    * `fast_scale!(x, ix, y, a, n)`
+
 
 Benchmarks
 ---------
@@ -62,10 +77,17 @@ Benchmarks with `Float64` Arrays on Intel Core i7 3612QM 2,1-3,1GHz quad core 64
 ##### Op `x = a*x`
 ![Scale1](/perf/scale_incx1.png)
 ![Scale12](/perf/scale_incxnu.png)
+![Scale2d](/perf/scale_2d_incx1.png)
 
 ##### Op `x = a*y`
 ![Scale1](/perf/scale_oop_incx1.png)
 ![Scale12](/perf/scale_oop_incxnu.png)
 
+
+
+TODO
+---------
+
+* inceqieq cases
 
 

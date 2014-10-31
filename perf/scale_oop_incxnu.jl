@@ -30,8 +30,7 @@ function scaleloopgen(x::Array, y::Array, v, n, ix, incx)
     end
     return x
 end
-calc(::BM_FAO, ::FUNT, x, y, v, n, nel, ix, incx) = unsafe_fast_scale!(x, ix, y, ix, v, nel, incx, incx)
-#calc(::BM_FAO, ::FUNT, x, v, ix, incx) = FastArrayOps.fast_gen_scal(x, v, n, ix, incx)
+calc(::BM_FAO, ::FUNT, x, y, v, n, nel, ix, incx) = unsafe_fast_scale!(x, ix, incx, y, ix, v, nel)
 
 
 Base.start{T}(p::BenchCase{T,FUNT}, n::Int) = (rand(n), rand(n), float64(1.000001), n, div(n-2,40)+1, 2, 40)

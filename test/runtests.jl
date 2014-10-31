@@ -8,7 +8,7 @@ for n in (FastArrayOps.NLIM_SCALE-1, FastArrayOps.NLIM_SCALE+1)
     x = dtype[1:n]
     a = convert(dtype,2.2)
     x_exp = x*a
-    fast_scale!(x,1,a,n,1)
+    fast_scale!(x,1,1,a,n)
     @test_approx_eq x x_exp
     
     # out-of-place
@@ -17,7 +17,7 @@ for n in (FastArrayOps.NLIM_SCALE-1, FastArrayOps.NLIM_SCALE+1)
     x = rand(dtype,n)
     a = convert(dtype,2.2)
     x_exp = y*a
-    fast_scale!(x,1,y,1,a,n,1,1)
+    fast_scale!(x,1,1,y,1,1,a,n)
     @test_approx_eq x x_exp
     @test_approx_eq y y_exp
 end
