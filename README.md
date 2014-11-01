@@ -2,6 +2,9 @@
 FastArrayOps.jl
 ===============
 
+[![Build Status](https://travis-ci.org/gummif/FastArrayOps.jl.svg?branch=master)](https://travis-ci.org/gummif/FastArrayOps.jl)
+[![Coverage Status](https://coveralls.io/repos/gummif/FastArrayOps.jl/badge.png?branch=master)](https://coveralls.io/r/gummif/FastArrayOps.jl?branch=master)
+
 A [Julia](https://github.com/JuliaLang/julia) package for fast inplace Array operations.
 
 Contains a large collection of benchmarks in `/perf`. They (should) show that the functions in this package provide the fastest way of performing the specified operation in julia, on average over a large range of parameters.
@@ -11,6 +14,7 @@ Different or new implementations or benchmark cases are welcome as issues or pul
 Currently in developement. Operations implemented: 
 
 * scale by scalar
+* scale by array
 * copy array
 
 See license (MIT) in LICENSE.md.
