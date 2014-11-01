@@ -6,7 +6,7 @@ include("testingmacros.jl")
 
 for nmax in 20:30,
     i in 1:20,
-    inc in [-10:-1:-1,1:10]
+    inc in [-10:1:-1,1:10]
     @test nel2nmax(i, inc, nmax2nel(i, inc, nmax)) <= nmax
     @test nel2nmax(i, inc, nmax2nel(i, inc, nmax)+1) > nmax
     @test nmax2nel(i, inc, nel2nmax(i, inc, nmax)) == nmax
@@ -18,7 +18,7 @@ end # for
 const TYPES = (Float64, Float32, Complex128, Complex64)
 const IX = (1, 2)
 const INC1 = (1, 2)
-const INC2 = ((2, 2), (2, 2), (2, 3), (-1, 2), (-1, -3))
+const INC2 = ((1, 1), (2, 2), (2, 3), (-1, 2), (-1, -3))
 const ANUM = 1.123
 
 println("fast_scale!(x, ix, incx, a, n) ...")

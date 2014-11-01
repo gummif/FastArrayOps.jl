@@ -11,7 +11,7 @@ Contains a large collection of benchmarks in `/perf`. They (should) show that th
 
 Different or new implementations or benchmark cases are welcome as issues or pull requests.
 
-Currently in developement. Operations implemented: 
+Currently under developement with the following operations implemented: 
 
 * scale by scalar
 * scale by array

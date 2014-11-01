@@ -464,13 +464,6 @@ macro axpy_blas(f, elty, x, ix, incx, y, iy, incy, a, n)
     end
 end
 
-
-## x = y.*z
-#x=rand(7)
-#y=reshape([1.0:7],(1,7))
-#z=[1:7]*0 +2.0
-#BLAS.sbmv!('U', 0, 1.0, y, z, 0.0, x)
-
 # x = y.*z
 macro vecmultoop_blas(f, elty, x, ix, incx, y, iy, incy, z, iz, incz, n)
     quote
@@ -491,6 +484,7 @@ macro vecmultoop_blas(f, elty, x, ix, incx, y, iy, incy, z, iz, incz, n)
                  &b, px, &($(esc(incx))))
     end
 end
+
 # x = x.*y
 macro vecmult_blas(f, elty, x, ix, incx, y, iy, incy, n)
     quote
@@ -500,8 +494,6 @@ macro vecmult_blas(f, elty, x, ix, incx, y, iy, incy, n)
         trans::BlasChar = 'N'
         diag::BlasChar = 'N'
         k::BlasInt = 0
-        #a::$(esc(elty)) = 1.0
-        #b::$(esc(elty)) = 0.0
         lda::BlasInt = $(esc(incy)) #*$(esc(n))
         ccall(($(esc(f)),libblas), Void,
                 (Ptr{Uint8}, Ptr{Uint8}, Ptr{Uint8}, 
