@@ -2,7 +2,7 @@ module FastArrayOps
 import Base.LinAlg: BlasReal, BlasComplex, BlasFloat, BlasInt, BlasChar
 const libblas = Base.libblas_name
 
-export fast_scale!, unsafe_fast_scale!
+export fast_scale!, unsafe_fast_scale!, fast_copy!, unsafe_fast_copy!
 export @fast_check1, @fast_check2, nmax2nel, nel2nmax, fast_args2range, fast_range2args
 
 ## CONSTANTS
@@ -11,6 +11,8 @@ const NLIM_SCALE = 13
 const NLIM_SCALE_OOP1 = 80
 const NLIM_SCALE_OOP2 = 100000
 const NLIM_SCALEARR = typemax(Int)
+const NLIM_COPY1 = 80
+const NLIM_COPY2 = 100000
 
 const FAO_ZERO = zero(Int)
 const FAO_ONE = one(Int)
@@ -195,7 +197,7 @@ for (f, isunsafe) in ( (:fast_copy!, false), (:unsafe_fast_copy!, true) )
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, n::Int)
     $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
     mul = max(abs(incx), abs(incy))
-    if n < $NLIM_SCALE_OOP1*mul || n*mul > $NLIM_SCALE_OOP2
+    if n < $NLIM_COPY1*mul || n*mul > $NLIM_COPY2
         @copy_foroop(x, ix, incx, y, iy, incy, n, $FAO_ZERO, $FAO_ONE)
     else
         @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incy, n)
@@ -206,7 +208,7 @@ end
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, n::Int)
     $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
     mul = abs(incx)
-    if n < $NLIM_SCALE_OOP1*mul || n*mul > $NLIM_SCALE_OOP2
+    if n < $NLIM_COPY1*mul || n*mul > $NLIM_COPY2
         @copy_foroop_inceq(x, ix, incx, y, iy, n, $FAO_ONE)
     else
         @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incx, n)
@@ -216,7 +218,7 @@ end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, n::Int)
     $isunsafe || @fast_check2(x, ix, $FAO_ONE, y, iy, $FAO_ONE, n)
-    if n < $NLIM_SCALE_OOP1 || n > $NLIM_SCALE_OOP2
+    if n < $NLIM_COPY1 || n > $NLIM_COPY2
         @copy_foroop_inc1(x, ix, y, iy, n, $FAO_ONE)
     else
         @copy_blas($(string(fcopy)), $(elty), x, ix, $FAO_ONE, y, iy, $FAO_ONE, n)
@@ -226,7 +228,7 @@ end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, n::Int)
     $isunsafe || @fast_check2(x, ix, $FAO_ONE, y, ix, $FAO_ONE, n)
-    if n < $NLIM_SCALE_OOP1 || n > $NLIM_SCALE_OOP2
+    if n < $NLIM_COPY1 || n > $NLIM_COPY2
         @copy_foroop_inc1ieq(x, ix, y, n, $FAO_ONE)
     else
         @copy_blas($(string(fcopy)), $(elty), x, ix, $FAO_ONE, y, ix, $FAO_ONE, n)

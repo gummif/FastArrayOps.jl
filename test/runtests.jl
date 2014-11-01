@@ -1,127 +1,83 @@
 using FastArrayOps
 using Base.Test
 
-macro printtest1(dtype, nmax, ix, incx, n)
-    quote
-        nmax=$(esc(nmax))
-        ix=$(esc(ix))
-        incx=$(esc(incx))
-        n=$(esc(n))
-        $(esc(dtype))<:Float64 && println("  nmax: $nmax, ix: $ix, incx: $incx, n: $n")
-    end
-end
-macro printtest2(dtype, nmax, ix, incx, iy, incy, n)
-    quote
-        nmax=$(esc(nmax))
-        ix=$(esc(ix))
-        incx=$(esc(incx))
-        iy=$(esc(iy))
-        incy=$(esc(incy))
-        n=$(esc(n))
-        $(esc(dtype))<:Float64 && println("  nmax: $nmax, ix: $ix, incx: $incx, iy: $iy, incy: $incy, n: $n")
-    end
-end
+include("testingmacros.jl")
 
-for nmax in 20:30
-for i in 1:20
-for inc in [-10:-1:-1,1:10]
+
+for nmax in 20:30,
+    i in 1:20,
+    inc in [-10:-1:-1,1:10]
     @test nel2nmax(i, inc, nmax2nel(i, inc, nmax)) <= nmax
     @test nel2nmax(i, inc, nmax2nel(i, inc, nmax)+1) > nmax
     @test nmax2nel(i, inc, nel2nmax(i, inc, nmax)) == nmax
     @test fast_range2args(fast_args2range(i, inc, nmax)) == (i, inc, nmax)
     @test fast_args2range(fast_range2args(i:inc:nmax)...) == i:inc:nmax
-end
-end
-end
+end # for
+
 
 const TYPES = (Float64, Float32, Complex128, Complex64)
+const IX = (1, 2)
+const INC1 = (1, 2)
+const INC2 = ((2, 2), (2, 2), (2, 3), (-1, 2), (-1, -3))
+const ANUM = 1.123
 
-## scale by scalar
-anum = 1.1
 println("fast_scale!(x, ix, incx, a, n) ...")
-for dtype in TYPES
-for ix in (1, 2)
-for incx in (1, 2)
-for nmax in (FastArrayOps.NLIM_SCALE-1, FastArrayOps.NLIM_SCALE+1)
-    #incx = 1
+for dtype in TYPES,
+    ix in IX,
+    incx in INC1,
+    nmax in (FastArrayOps.NLIM_SCALE-1, FastArrayOps.NLIM_SCALE+1)
+    
     n = nmax2nel(ix, incx, nmax)
     @printtest1(dtype, nmax, ix, incx, n)
-    # INPLACE
-    x0 = dtype[1:nmax]
-    a = convert(dtype,anum)
-    x_exp = copy(x0)
+
+    x_exp, x0 = makesignals1(dtype, nmax)
+    a = convert(dtype,ANUM)
     x_exp[fast_args2range(ix, incx, n)] *= a
     
-    x = copy(x0)
-    fast_scale!(x,ix,incx,a,n)
-    @test_approx_eq x x_exp
-    
-    # compare kinds
-    # inc1
-    if incx == 1
-        x = copy(x0)
-        fast_scale!(x,ix,a,n)
-        @test_approx_eq x x_exp 
-    end
-end # for
-end # for
-end # for
+    @testfunc_arr1a(fast_scale!, x_exp, x0, ix, incx, a, n)
 end # for
 
+
 println("fast_scale!(x, ix, incx, y, iy, incy, a, n) ...")
-for dtype in TYPES
-for ix in (1, 2)
-for incx in (1, 2)
-for nmax in (FastArrayOps.NLIM_SCALE_OOP1-1, FastArrayOps.NLIM_SCALE_OOP1+1)
+for dtype in TYPES,
+    ix in IX,
+    (incx, incy) in INC2,
+    nmax in (FastArrayOps.NLIM_SCALE_OOP1-1, FastArrayOps.NLIM_SCALE_OOP1+1)
+    
     iy = ix
-    incy = incx
-    n = nmax2nel(ix, incx, nmax)
+    nx = nmax2nel(ix, incx, nmax)
+    ny = nmax2nel(iy, incy, nmax)
+    n = min(nx, ny)
     @printtest2(dtype, nmax, ix, incx, iy, incy, n)
-    # OUT-OF-PLACE
-    y0 = dtype[1:nmax]
-    y_exp = y0
-    x0 = rand(dtype,nmax)
-    a = convert(dtype,anum)
-    x_exp = copy(x0)
+
+    x_exp, x0, y0 = makesignals2(dtype, nmax)
+    a = convert(dtype,ANUM)
     rx = fast_args2range(ix, incx, n)
     ry = fast_args2range(iy, incy, n)
     x_exp[rx] = a*y0[ry]
     
-    x = copy(x0)
-    y = copy(y0)
-    fast_scale!(x,ix,incx,y,iy,incy,a,n)
-    @test_approx_eq x x_exp
-    @test_approx_eq y y_exp
+    @testfunc_arr2a(fast_scale!, x_exp, x0, ix, incx, y0, iy, incy, a, n)
+end # for
+
+
+println("fast_copy!(x, ix, incx, y, iy, incy, n) ...")
+for dtype in TYPES,
+    ix in IX,
+    (incx, incy) in INC2,
+    nmax in (FastArrayOps.NLIM_COPY1-1, FastArrayOps.NLIM_COPY1+1)
     
-    # compare kinds
-    # inceq
-    if incx == incy
-        x = copy(x0)
-        y = copy(y0)
-        fast_scale!(x,ix,incx,y,iy,a,n)
-        @test_approx_eq x x_exp
-        @test_approx_eq y y_exp
-        # inc1
-        if incx == 1
-            x = copy(x0)
-            y = copy(y0)
-            fast_scale!(x,ix,y,iy,a,n)
-            @test_approx_eq x x_exp
-            @test_approx_eq y y_exp
-            # inc1ieq
-            if ix == iy
-                x = copy(x0)
-                y = copy(y0)
-                fast_scale!(x,ix,y,a,n)
-                @test_approx_eq x x_exp
-                @test_approx_eq y y_exp
-            end
-        end  
-    end
+    iy = ix
+    nx = nmax2nel(ix, incx, nmax)
+    ny = nmax2nel(iy, incy, nmax)
+    n = min(nx, ny)
+    @printtest2(dtype, nmax, ix, incx, iy, incy, n)
+
+    x_exp, x0, y0 = makesignals2(dtype, nmax)
+    rx = fast_args2range(ix, incx, n)
+    ry = fast_args2range(iy, incy, n)
+    x_exp[rx] = y0[ry]
     
-end # for
-end # for
-end # for
+    @testfunc_arr2(fast_copy!, x_exp, x0, ix, incx, y0, iy, incy, n)
 end # for
 
 
