@@ -3,7 +3,7 @@ FastArrayOps.jl
 ===============
 
 [![Build Status](https://travis-ci.org/gummif/FastArrayOps.jl.svg?branch=master)](https://travis-ci.org/gummif/FastArrayOps.jl)
-[![Coverage Status](https://coveralls.io/repos/gummif/FastArrayOps.jl/badge.png?branch=master)](https://coveralls.io/r/gummif/FastArrayOps.jl?branch=master)
+[![Coverage Status](https://coveralls.io/repos/gummif/FastArrayOps.jl/badge.png)](https://coveralls.io/r/gummif/FastArrayOps.jl)
 
 A [Julia](https://github.com/JuliaLang/julia) package for fast inplace Array operations.
 

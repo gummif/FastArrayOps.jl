@@ -24,7 +24,7 @@ end
 
 for nmax in 20:30
 for i in 1:20
-for inc in 1:10
+for inc in [-10:-1:-1,1:10]
     @test nel2nmax(i, inc, nmax2nel(i, inc, nmax)) <= nmax
     @test nel2nmax(i, inc, nmax2nel(i, inc, nmax)+1) > nmax
     @test nmax2nel(i, inc, nel2nmax(i, inc, nmax)) == nmax
