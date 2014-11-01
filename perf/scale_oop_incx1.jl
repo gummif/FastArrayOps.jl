@@ -15,7 +15,7 @@ calc(::BM_BLAS, ::FUNT, x, y, v) = begin
     BLAS.blascopy!(n, y, 1, x, 1)
     BLAS.scal!(n, v, x, 1)
 end
-calc(::BM_Broadcast, ::FUNT, x, y, v) = broadcast!(.*, x, y, v)
+calc(::BM_Broadcast, ::FUNT, x, y, v) = broadcast!(*, x, y, v)
 calc(::BM_Forloop, ::FUNT, x, y, v) = scaleloop1(x, y, v)
 function scaleloop1(x::Array, y::Array, v)
     @inbounds for i=1:length(x)

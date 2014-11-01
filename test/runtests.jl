@@ -29,6 +29,7 @@ for inc in 1:10
     @test nel2nmax(i, inc, nmax2nel(i, inc, nmax)+1) > nmax
     @test nmax2nel(i, inc, nel2nmax(i, inc, nmax)) == nmax
     @test fast_range2args(fast_args2range(i, inc, nmax)) == (i, inc, nmax)
+    @test fast_args2range(fast_range2args(i:inc:nmax)...) == i:inc:nmax
 end
 end
 end

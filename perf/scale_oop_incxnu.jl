@@ -21,7 +21,7 @@ end
 calc(::BM_Broadcast, ::FUNT, x, y, v, n, nel, ix, incx) = begin
     xv = view(x, ix:incx:n)
     yv = view(y, ix:incx:n)
-    broadcast!(.*,xv,yv,v)
+    broadcast!(*,xv,yv,v)
 end
 calc(::BM_Forloop, ::FUNT, x, y, v, n, nel, ix, incx) = scaleloopgen(x, y, v, n, ix, incx)
 function scaleloopgen(x::Array, y::Array, v, n, ix, incx)

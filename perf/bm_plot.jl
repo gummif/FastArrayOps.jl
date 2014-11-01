@@ -22,7 +22,7 @@ function savetableimg(A::BenchmarkTable, title::String, filename::String,
     df = vcat(dfa...)
     
     p = Gadfly.plot(df, x="x", y="y", color="method", 
-            Scale.x_log10, Scale.y_log10, Theme(line_width=0.7mm), Geom.line, 
+            Scale.x_log10, Scale.y_log10, Theme(line_width=0.7mm), Geom.line, Geom.point,
             Guide.XLabel("Array length [n]"), Guide.YLabel("Rel. [s / G ops.] to FAO"), 
             Guide.title(title))
     Gadfly.draw(PNG(string(filename,".png"), 16cm, 10cm), p)

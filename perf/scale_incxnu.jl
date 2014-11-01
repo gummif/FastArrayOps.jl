@@ -7,7 +7,7 @@ calc(::BM_JBase2, ::FUNT, x, v, n, nel, ix, incx) = scale!(v, view(x, ix:incx:n)
 calc(::BM_BLAS, ::FUNT, x, v, n, nel, ix, incx) = BLAS.scal!(nel, v, pointer(x,ix), incx)
 calc(::BM_Broadcast, ::FUNT, x, v, n, nel, ix, incx) = begin
     vx = view(x, ix:incx:n)
-    broadcast!(.*,vx,vx,v)
+    broadcast!(*,vx,vx,v)
 end
 calc(::BM_Forloop, ::FUNT, x, v, n, nel, ix, incx) = scaleloopgen(x, v, n, ix, incx)
 function scaleloopgen(x::Array, v, n, ix, incx)

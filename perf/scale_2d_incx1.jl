@@ -36,7 +36,7 @@ calc(::BM_Broadcast, ::FUNT, x) = begin
     nx = size(x,1)
     @inbounds for j = 1:size(x,2)
         vx = view(x, ix:ix+nx-1)
-        broadcast!(.*, vx, vx, x[ix])
+        broadcast!(*, vx, vx, x[ix])
         ix += nx
     end
     return x

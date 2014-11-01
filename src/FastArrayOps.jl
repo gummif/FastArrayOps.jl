@@ -3,22 +3,29 @@ import Base.LinAlg: BlasReal, BlasComplex, BlasFloat, BlasInt, BlasChar
 const libblas = Base.libblas_name
 
 export fast_scale!, unsafe_fast_scale!
-export @fast_check1, @fast_check2
-export nmax2nel, nel2nmax, fast_args2range, fast_range2args
+export @fast_check1, @fast_check2, nmax2nel, nel2nmax, fast_args2range, fast_range2args
+
+## CONSTANTS
+
+const NLIM_SCALE = 13
+const NLIM_SCALE_OOP1 = 80
+const NLIM_SCALE_OOP2 = 100000
+const NLIM_SCALEARR = typemax(Int)
+
+const FAO_ZERO = zero(Int)
+const FAO_ONE = one(Int)
+
+## UTILS
 
 function nmax2nel(i::Int, inc::Int, nmax::Int)
     @assert 0 < i
-    nmax < i && return zero(Int)
-    nel = div(nmax - i, abs(inc)) + one(Int)
-    while nel2nmax(i, inc, nel) > nmax
-        nel -= one(Int)
-    end
-    return nel
+    nmax < i && return FAO_ZERO
+    return div(nmax - i, abs(inc)) + FAO_ONE
 end
 function nel2nmax(i::Int, inc::Int, nel::Int)
     @assert 0 < i
-    nel < 0 && return i - one(Int)
-    return i - one(Int) + nel*abs(inc)
+    nel < 0 && return i - FAO_ONE
+    return i + (nel- FAO_ONE)*abs(inc)
 end
 function fast_args2range(i::Int, inc::Int, n::Int)
     @assert 0 < i
@@ -37,22 +44,11 @@ function fast_range2args(r::Range)
     end
 end
 
-
-
-## cutoff constants
-
-const NLIM_SCALE = 13
-const NLIM_SCALE_OOP1 = 80
-const NLIM_SCALE_OOP2 = 100000
-
-const FAO_ZERO = zero(Int)
-const FAO_ONE = one(Int)
-
+## MACROS
 include("macros.jl")
 
 
 ## FAO scale methods
-
 
 for (fscal, fcopy, elty) in ((:dscal_,:dcopy_,:Float64), 
                              (:sscal_,:scopy_,:Float32),
@@ -133,23 +129,59 @@ function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, a::$elty, n::Int)
     return x
 end
 
-
-
-function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, n::Int, incx::Int, incy::Int)
-    if !($isunsafe)
-        (0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
-        (0 < ix && 0 < iy) || throw(BoundsError())
-        ix-1+n*abs(incx) <= length(x) || throw(BoundsError())
-        iy-1+n*abs(incy) <= length(y) || throw(BoundsError())
+# x = x.*y
+# general
+function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, n::Int)
+    $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
+    mul = max(abs(incx), abs(incy))
+    if n < $NLIM_SCALEARR*mul # || n*mul > $NLIM_SCALEARR
+        @scalearr_for(x, ix, incx, y, iy, incy, n, $FAO_ZERO, $FAO_ONE)
+    else
+        @vecmult_blas($(string(:dtbmv_)), $(elty), x, ix, incx, y, iy, incy, n)
     end
-    # TBMV,  GBMV, SBMV
-    # scale 0
-    # alpha=0, beta=0
-    #BLAS.sbmv!('U', k::Int,
-    #                  alpha::($elty), A::StridedMatrix{$elty}, x::StridedVector{$elty}, 
-    #                  beta::($elty), y::StridedVector{$elty})
     return x
 end
+# inceq
+function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, n::Int)
+    $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
+    mul = abs(incx)
+    if n < $NLIM_SCALEARR*mul # || n*mul > $NLIM_SCALEARR
+        @scalearr_for_inceq(x, ix, incx, y, iy, n, $FAO_ONE)
+    else
+        @vecmult_blas($(string(:dtbmv_)), $(elty), x, ix, incx, y, iy, incx, n)
+    end
+    return x
+end
+# inc1
+function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, n::Int)
+    $isunsafe || @fast_check2(x, ix, $FAO_ONE, y, iy, $FAO_ONE, n)
+    if n < $NLIM_SCALEARR
+        @scalearr_for_inc1(x, ix, y, iy, n, $FAO_ONE)
+    else
+        @vecmult_blas($(string(:dtbmv_)), $(elty), x, ix, $FAO_ONE, y, iy, $FAO_ONE, n)
+    end
+    return x
+end
+# inc1ieq
+function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, n::Int)
+    $isunsafe || @fast_check2(x, ix, $FAO_ONE, y, ix, $FAO_ONE, n)
+    if n < $NLIM_SCALEARR
+        @scalearr_for_inc1ieq(x, ix, y, n, $FAO_ONE)
+    else
+        @vecmult_blas($(string(:dtbmv_)), $(elty), x, ix, $FAO_ONE, y, ix, $FAO_ONE, n)
+    end
+    return x
+end
+
+# x = y.*z
+# general
+function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, z::Array{$elty}, iz::Int, incz::Int, n::Int)
+    @fast_check3(x, ix, incx, y, iy, incx, z, iz, incz, n)
+    @vecmultoop_blas($(string(:dsbmv_)), $(elty), x, ix, incx, y, iy, incy, z, iz, incz, n)
+    return x
+end
+
+
 
 end # eval begin
 end # for

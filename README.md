@@ -82,7 +82,7 @@ There are faster methods than the above general methods, which are called by sup
 Benchmarks
 ---------
 
-Benchmarks with `Float64` Arrays on Intel Core i7 3612QM 2,1-3,1GHz quad core 64bit. See directory `/perf` for details. Out-of-place functions are marked with `oop`.
+Benchmarks with `Float64` Arrays. See directory `/perf` for code details and further results. Out-of-place functions are marked with `oop`. Benchmarks specs: Julia 0.3, Linux 3.14, Intel Core i7 3612QM 2,1-3,1GHz quad core 64bit, OpenBLAS, single thread.
 
 ##### Op `x = a*x`
 ![Scale1](/perf/scale_incx1.png)
