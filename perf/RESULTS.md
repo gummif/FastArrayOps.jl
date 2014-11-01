@@ -3,7 +3,7 @@
 
 ![Scale1](/perf/scale_incx1.png)
 
-![Scale12](/perf/scale_incxnu.png)
+![Scalenu](/perf/scale_incxnu.png)
 
 Scale columns of a `n` by `16` matrix by the first row elements.
 ![Scale2d](/perf/scale_2d_incx1.png)
@@ -12,11 +12,11 @@ Scale columns of a `n` by `16` matrix by the first row elements.
 
 ![Scale1](/perf/scale_oop_incx1.png)
 
-![Scale12](/perf/scale_oop_incxnu.png)
+![Scalenu](/perf/scale_oop_incxnu.png)
 
 #### Op `x = x.*y`
 
 ![Scale1](/perf/scalearr_incx1.png)
 
-![Scale1](/perf/scalearr_incxnu.png)
+![Scalenu](/perf/scalearr_incxnu.png)
 
