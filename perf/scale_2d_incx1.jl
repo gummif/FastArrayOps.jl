@@ -65,13 +65,11 @@ calc(::BM_FAO, ::FUNT, x) = begin
 end
 
 
-Base.start{T}(p::BenchCase{T,FUNT}, n::Int) = (rand(n,16), )
+Base.start{T}(p::BenchCase{T,FUNT}, n::Int) = 
+    (rand(n,16), )
+
 function Base.run{Op,FUNT}(p::BenchCase{Op,FUNT}, n::Int, s)  # bench type, config, start value
-    s::(Vector{Float64}, Float64, Int)
-    x, = s
-    op = Op()
-    funt = FUNT()
-    calc(op, funt, x)
+    calc(Op(), FUNT(), s...)
     return nothing
 end
 

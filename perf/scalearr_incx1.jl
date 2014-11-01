@@ -25,13 +25,11 @@ end
 calc(::BM_FAO, ::FUNT, x, y) = unsafe_fast_scale!(x, 1, y, length(x))
 
 
-Base.start{T}(p::BenchCase{T,FUNT}, n::Int) = (rand(n), rand(n))
+Base.start{T}(p::BenchCase{T,FUNT}, n::Int) = 
+    (rand(n), rand(n))
+
 function Base.run{Op,FUNT}(p::BenchCase{Op,FUNT}, n::Int, s)  # bench type, config, start value
-    s::(Vector{Float64}, Float64)
-    x, y = s
-    op = Op()
-    funt = FUNT()
-    calc(op, funt, x, y)
+    calc(Op(), FUNT(), s...)
     return nothing
 end
 

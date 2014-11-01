@@ -34,10 +34,12 @@ end
 end
 end
 
+const TYPES = (Float64, Float32, Complex128, Complex64)
+
 ## scale by scalar
 anum = 1.1
 println("fast_scale!(x, ix, incx, a, n) ...")
-for dtype in (Float64, Float32, Complex128, Complex64)
+for dtype in TYPES
 for ix in (1, 2)
 for incx in (1, 2)
 for nmax in (FastArrayOps.NLIM_SCALE-1, FastArrayOps.NLIM_SCALE+1)
@@ -67,7 +69,7 @@ end # for
 end # for
 
 println("fast_scale!(x, ix, incx, y, iy, incy, a, n) ...")
-for dtype in (Float64, Float32, Complex128, Complex64)
+for dtype in TYPES
 for ix in (1, 2)
 for incx in (1, 2)
 for nmax in (FastArrayOps.NLIM_SCALE_OOP1-1, FastArrayOps.NLIM_SCALE_OOP1+1)

@@ -18,4 +18,5 @@ Scale columns of a `n` by `16` matrix by the first row elements.
 
 ![Scale1](/perf/scalearr_incx1.png)
 
+![Scale1](/perf/scalearr_incxnu.png)
 

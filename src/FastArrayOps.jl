@@ -134,7 +134,7 @@ end
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, n::Int)
     $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
     mul = max(abs(incx), abs(incy))
-    if n < $NLIM_SCALEARR*mul # || n*mul > $NLIM_SCALEARR
+    if n < $NLIM_SCALEARR #*mul # || n*mul > $NLIM_SCALEARR
         @scalearr_for(x, ix, incx, y, iy, incy, n, $FAO_ZERO, $FAO_ONE)
     else
         @vecmult_blas($(string(:dtbmv_)), $(elty), x, ix, incx, y, iy, incy, n)
@@ -145,7 +145,7 @@ end
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, n::Int)
     $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
     mul = abs(incx)
-    if n < $NLIM_SCALEARR*mul # || n*mul > $NLIM_SCALEARR
+    if n < $NLIM_SCALEARR #*mul # || n*mul > $NLIM_SCALEARR
         @scalearr_for_inceq(x, ix, incx, y, iy, n, $FAO_ONE)
     else
         @vecmult_blas($(string(:dtbmv_)), $(elty), x, ix, incx, y, iy, incx, n)
