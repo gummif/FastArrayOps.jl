@@ -75,6 +75,52 @@ macro testfunc_arr1a(func, x_exp, x0, ix, incx, a, n)
         end
     end
 end
+# 2 Arrays
+macro testfunc_arr2(func, x_exp, x0, ix, incx, y0, iy, incy, n)
+    quote
+        func = $(esc(func))
+        x_exp = $(esc(x_exp))
+        x0 = $(esc(x0))
+        ix = $(esc(ix))
+        incx = $(esc(incx))
+        y0 = $(esc(y0))
+        iy = $(esc(iy))
+        incy = $(esc(incy))
+        n = $(esc(n))
+
+        x = copy(x0)
+        y = copy(y0)
+        func(x,ix,incx,y,iy,incy,n)
+        @test_approx_eq x x_exp
+        @test_approx_eq y y0
+        
+        # compare kinds
+        # inceq
+        if incx == incy
+            x = copy(x0)
+            y = copy(y0)
+            func(x,ix,incx,y,iy,n)
+            @test_approx_eq x x_exp
+            @test_approx_eq y y0
+            # inc1
+            if incx == 1
+                x = copy(x0)
+                y = copy(y0)
+                func(x,ix,y,iy,n)
+                @test_approx_eq x x_exp
+                @test_approx_eq y y0
+                # inc1ieq
+                if ix == iy
+                    x = copy(x0)
+                    y = copy(y0)
+                    func(x,ix,y,n)
+                    @test_approx_eq x x_exp
+                    @test_approx_eq y y0
+                end
+            end  
+        end
+    end
+end
 # 2 Arrays, scalar
 macro testfunc_arr2a(func, x_exp, x0, ix, incx, y0, iy, incy, a, n)
     quote
@@ -115,52 +161,6 @@ macro testfunc_arr2a(func, x_exp, x0, ix, incx, y0, iy, incy, a, n)
                     x = copy(x0)
                     y = copy(y0)
                     func(x,ix,y,a,n)
-                    @test_approx_eq x x_exp
-                    @test_approx_eq y y0
-                end
-            end  
-        end
-    end
-end
-# 2 Arrays
-macro testfunc_arr2(func, x_exp, x0, ix, incx, y0, iy, incy, n)
-    quote
-        func = $(esc(func))
-        x_exp = $(esc(x_exp))
-        x0 = $(esc(x0))
-        ix = $(esc(ix))
-        incx = $(esc(incx))
-        y0 = $(esc(y0))
-        iy = $(esc(iy))
-        incy = $(esc(incy))
-        n = $(esc(n))
-
-        x = copy(x0)
-        y = copy(y0)
-        func(x,ix,incx,y,iy,incy,n)
-        @test_approx_eq x x_exp
-        @test_approx_eq y y0
-        
-        # compare kinds
-        # inceq
-        if incx == incy
-            x = copy(x0)
-            y = copy(y0)
-            func(x,ix,incx,y,iy,n)
-            @test_approx_eq x x_exp
-            @test_approx_eq y y0
-            # inc1
-            if incx == 1
-                x = copy(x0)
-                y = copy(y0)
-                func(x,ix,y,iy,n)
-                @test_approx_eq x x_exp
-                @test_approx_eq y y0
-                # inc1ieq
-                if ix == iy
-                    x = copy(x0)
-                    y = copy(y0)
-                    func(x,ix,y,n)
                     @test_approx_eq x x_exp
                     @test_approx_eq y y0
                 end
@@ -214,6 +214,61 @@ macro testfunc_arr3(func, x_exp, x0, ix, incx, y0, iy, incy, z0, iz, incz, n)
                     x = copy(x0)
                     y = copy(y0)
                     func(x,ix,y,z,n)
+                    @test_approx_eq x x_exp
+                    @test_approx_eq y y0
+                    @test_approx_eq z z0
+                end
+            end  
+        end
+    end
+end
+# 3 Arrays, scalar
+macro testfunc_arr3a(func, x_exp, x0, ix, incx, y0, iy, incy, z0, iz, incz, a, n)
+    quote
+        func = $(esc(func))
+        x_exp = $(esc(x_exp))
+        x0 = $(esc(x0))
+        ix = $(esc(ix))
+        incx = $(esc(incx))
+        y0 = $(esc(y0))
+        iy = $(esc(iy))
+        incy = $(esc(incy))
+        z0 = $(esc(z0))
+        iz = $(esc(iz))
+        incz = $(esc(incz))
+        a = $(esc(a))
+        n = $(esc(n))
+
+        x = copy(x0)
+        y = copy(y0)
+        z = copy(z0)
+        func(x,ix,incx,y,iy,incy,z,iz,incz,a,n)
+        @test_approx_eq x x_exp
+        @test_approx_eq y y0
+        @test_approx_eq z z0
+        
+        # compare kinds
+        # inceq
+        if incx == incy
+            x = copy(x0)
+            y = copy(y0)
+            func(x,ix,incx,y,iy,z,iz,a,n)
+            @test_approx_eq x x_exp
+            @test_approx_eq y y0
+            @test_approx_eq z z0
+            # inc1
+            if incx == 1
+                x = copy(x0)
+                y = copy(y0)
+                func(x,ix,y,iy,z,iz,a,n)
+                @test_approx_eq x x_exp
+                @test_approx_eq y y0
+                @test_approx_eq z z0
+                # inc1ieq
+                if ix == iy
+                    x = copy(x0)
+                    y = copy(y0)
+                    func(x,ix,y,z,a,n)
                     @test_approx_eq x x_exp
                     @test_approx_eq y y0
                     @test_approx_eq z z0

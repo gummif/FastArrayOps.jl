@@ -415,11 +415,11 @@ end
 # x = a*x       # done: scale_blas
 # x = a*y       # done: copy_blas, scale_blas
 # scale by array
-# x = x.*y      # done: vecmult_blas
-# x = y.*z      # done: vecmultoop_blas
+# x = x.*y      # done, slow: vecmult_blas
+# x = y.*z      # done, slow: vecmultoop_blas
 # add scalar
 # x = x + a     # ?
-# x = y + a     # ?
+# x = y + a     # ? probably very slow: fill(x,a) axpy: x += 1*y
 # add array
 # x = x + y     # done: axpy_blas with a=1
 # x = y + z     # done: copy_blas, axpy_blas with a=1
