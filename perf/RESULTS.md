@@ -28,9 +28,9 @@ Scale columns of a `n` by `16` matrix by the first row elements.
 
 #### Op `x = x + y`
 
-![Scale1](/perf/scalearr_incx1.png)
+![Scale1](/perf/addarr_incx1.png)
 
 #### Op `x = y + z`
 
-![Scale1](/perf/scalearr_oop_incx1.png)
+![Scale1](/perf/addarr_oop_incx1.png)
 
