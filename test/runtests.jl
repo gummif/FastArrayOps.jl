@@ -127,7 +127,7 @@ println("fast_add!(x, ix, incx, y, iy, incy, z, iz, incz, n) ...")
 for dtype in TYPES,
     ix in IX,
     (incx, incy, incz) in INC3,
-    nmax in (FastArrayOps.NLIM_ADDARR_OOP-1, FastArrayOps.NLIM_ADDARR_OOP+1)
+    nmax in (FastArrayOps.NLIM_ADDARR_OOP1-1, FastArrayOps.NLIM_ADDARR_OOP1+1)
     
     iy = ix
     iz = ix
