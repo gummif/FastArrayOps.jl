@@ -11,6 +11,7 @@ const NLIM_SCALE = 13
 const NLIM_SCALE_OOP1 = 80
 const NLIM_SCALE_OOP2 = 100000
 const NLIM_SCALEARR = typemax(Int)
+const NLIM_SCALEARR_OOP = typemax(Int)
 const NLIM_COPY1 = 80
 const NLIM_COPY2 = 100000
 
@@ -50,17 +51,21 @@ end
 include("macros.jl")
 
 
-## FAO scale methods
 
-for (fscal, fcopy, elty) in ((:dscal_,:dcopy_,:Float64), 
-                             (:sscal_,:scopy_,:Float32),
-                             (:zscal_,:zcopy_,:Complex128), 
-                             (:cscal_,:ccopy_,:Complex64))
+
+for (fscal, fcopy, faxpy, ftbmv, fsbmv, elty) in (
+                        (:dscal_,:dcopy_,:daxpy_,:dtbmv_,:dsbmv_,:Float64), 
+                        (:sscal_,:scopy_,:saxpy_,:stbmv_,:ssbmv_,:Float32),
+                        (:zscal_,:zcopy_,:zaxpy_,:ztbmv_,:zsbmv_,:Complex128), 
+                        (:cscal_,:ccopy_,:caxpy_,:ctbmv_,:csbmv_,:Complex64))
+
+## SCALE METHODS
+
 for (f, isunsafe) in ( (:fast_scale!, false), (:unsafe_fast_scale!, true) )
 @eval begin
 
-
 # x = a*x
+# =======
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, a::$elty, n::Int)
     $isunsafe || @fast_check1(x, ix, incx, n)
@@ -84,6 +89,7 @@ function ($f)(x::Array{$elty}, ix::Int, a::$elty, n::Int)
 end
 
 # x = a*y
+# =======
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, a::$elty, n::Int)
     $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
@@ -132,62 +138,98 @@ function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, a::$elty, n::Int)
 end
 
 # x = x.*y
+# ========
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, n::Int)
     $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
-    mul = max(abs(incx), abs(incy))
-    if n < $NLIM_SCALEARR #*mul # || n*mul > $NLIM_SCALEARR
+    #if n < $NLIM_SCALEARR #*mul # || n*mul > $NLIM_SCALEARR
         @scalearr_for(x, ix, incx, y, iy, incy, n, $FAO_ZERO, $FAO_ONE)
-    else
-        @vecmult_blas($(string(:dtbmv_)), $(elty), x, ix, incx, y, iy, incy, n)
-    end
+    #else
+    #    @vecmult_blas($(string(ftbmv)), $(elty), x, ix, incx, y, iy, incy, n)
+    #end
     return x
 end
 # inceq
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, n::Int)
     $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
-    mul = abs(incx)
-    if n < $NLIM_SCALEARR #*mul # || n*mul > $NLIM_SCALEARR
+    #if n < $NLIM_SCALEARR
         @scalearr_for_inceq(x, ix, incx, y, iy, n, $FAO_ONE)
-    else
-        @vecmult_blas($(string(:dtbmv_)), $(elty), x, ix, incx, y, iy, incx, n)
-    end
+    #else
+    #    @vecmult_blas($(string(ftbmv)), $(elty), x, ix, incx, y, iy, incx, n)
+    #end
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, n::Int)
     $isunsafe || @fast_check2(x, ix, $FAO_ONE, y, iy, $FAO_ONE, n)
-    if n < $NLIM_SCALEARR
+    #if n < $NLIM_SCALEARR
         @scalearr_for_inc1(x, ix, y, iy, n, $FAO_ONE)
-    else
-        @vecmult_blas($(string(:dtbmv_)), $(elty), x, ix, $FAO_ONE, y, iy, $FAO_ONE, n)
-    end
+    #else
+    #    @vecmult_blas($(string(ftbmv)), $(elty), x, ix, $FAO_ONE, y, iy, $FAO_ONE, n)
+    #end
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, n::Int)
     $isunsafe || @fast_check2(x, ix, $FAO_ONE, y, ix, $FAO_ONE, n)
-    if n < $NLIM_SCALEARR
+    #if n < $NLIM_SCALEARR
         @scalearr_for_inc1ieq(x, ix, y, n, $FAO_ONE)
-    else
-        @vecmult_blas($(string(:dtbmv_)), $(elty), x, ix, $FAO_ONE, y, ix, $FAO_ONE, n)
-    end
+    #else
+    #    @vecmult_blas($(string(ftbmv)), $(elty), x, ix, $FAO_ONE, y, ix, $FAO_ONE, n)
+    #end
     return x
 end
 
 # x = y.*z
+# ========
+
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, z::Array{$elty}, iz::Int, incz::Int, n::Int)
-    @fast_check3(x, ix, incx, y, iy, incx, z, iz, incz, n)
-    @vecmultoop_blas($(string(:dsbmv_)), $(elty), x, ix, incx, y, iy, incy, z, iz, incz, n)
+    $isunsafe || @fast_check3(x, ix, incx, y, iy, incy, z, iz, incz, n)
+    #if n < $NLIM_SCALEARR_OOP
+        @scalearr_foroop(x, ix, incx, y, iy, incy, z, iz, incz, n, $FAO_ZERO, $FAO_ONE)
+    #else
+    #    @vecmultoop_blas($(string(fsbmv)), $(elty), x, ix, incx, y, iy, incy, z, iz, incz, n)
+    #end
     return x
 end
-
+# inceq
+function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, z::Array{$elty}, iz::Int, n::Int)
+    $isunsafe || @fast_check3(x, ix, incx, y, iy, incx, z, iz, incx, n)
+    #if n < $NLIM_SCALEARR_OOP
+        @scalearr_foroop_inceq(x, ix, incx, y, iy, z, iz, n, $FAO_ONE)
+    #else
+    #    @vecmultoop_blas($(string(fsbmv)), $(elty), x, ix, incx, y, iy, incx, z, iz, incx, n)
+    #end
+    return x
+end
+# inc1
+function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, z::Array{$elty}, iz::Int, n::Int)
+    $isunsafe || @fast_check3(x, ix, $FAO_ONE, y, iy, $FAO_ONE, z, iz, $FAO_ONE, n)
+    #if n < $NLIM_SCALEARR_OOP
+        @scalearr_foroop_inc1(x, ix, y, iy, z, iz, n, $FAO_ONE)
+    #else
+    #    @vecmultoop_blas($(string(fsbmv)), $(elty), x, ix, $FAO_ONE, y, iy, $FAO_ONE, z, iz, $FAO_ONE, n)
+    #end
+    return x
+end
+# inc1ieq
+function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, z::Array{$elty}, n::Int)
+    $isunsafe || @fast_check3(x, ix, $FAO_ONE, y, ix, $FAO_ONE, z, ix, $FAO_ONE, n)
+    #if n < $NLIM_SCALEARR_OOP
+        @scalearr_foroop_inc1ieq(x, ix, y, z, n, $FAO_ONE)
+    #else
+    #    @vecmultoop_blas($(string(fsbmv)), $(elty), x, ix, $FAO_ONE, y, ix, $FAO_ONE, z, ix, $FAO_ONE, n)
+    #end
+    return x
+end
 
 
 end # eval begin
 end # for
 
+
+## COPY METHODS
 
 for (f, isunsafe) in ( (:fast_copy!, false), (:unsafe_fast_copy!, true) )
 @eval begin

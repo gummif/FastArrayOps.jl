@@ -19,6 +19,7 @@ const TYPES = (Float64, Float32, Complex128, Complex64)
 const IX = (1, 2)
 const INC1 = (1, 2)
 const INC2 = ((1, 1), (2, 2), (2, 3), (-1, 2), (-1, -3))
+const INC3 = ((1, 1, 1), (2, 2, 2), (2, 3, 1), (-1, 2, 3), (-1, -3, -2))
 const ANUM = 1.123
 
 println("fast_scale!(x, ix, incx, a, n) ...")
@@ -57,6 +58,49 @@ for dtype in TYPES,
     x_exp[rx] = a*y0[ry]
     
     @testfunc_arr2a(fast_scale!, x_exp, x0, ix, incx, y0, iy, incy, a, n)
+end # for
+
+println("fast_scale!(x, ix, incx, y, iy, incy, n) ...")
+for dtype in TYPES,
+    ix in IX,
+    (incx, incy) in INC2,
+    nmax in (15,22)  # NLIM is max Int
+    
+    iy = ix
+    nx = nmax2nel(ix, incx, nmax)
+    ny = nmax2nel(iy, incy, nmax)
+    n = min(nx, ny)
+    @printtest2(dtype, nmax, ix, incx, iy, incy, n)
+
+    x_exp, x0, y0 = makesignals2(dtype, nmax)
+    rx = fast_args2range(ix, incx, n)
+    ry = fast_args2range(iy, incy, n)
+    x_exp[rx] .*= y0[ry]
+    
+    @testfunc_arr2(fast_scale!, x_exp, x0, ix, incx, y0, iy, incy, n)
+end # for
+
+println("fast_scale!(x, ix, incx, y, iy, incy, z, iz, incz, n) ...")
+for dtype in TYPES,
+    ix in IX,
+    (incx, incy, incz) in INC3,
+    nmax in (15,22)  # NLIM is max Int
+    
+    iy = ix
+    iz = ix
+    nx = nmax2nel(ix, incx, nmax)
+    ny = nmax2nel(iy, incy, nmax)
+    nz = nmax2nel(iz, incz, nmax)
+    n = min(min(nx, ny), nz)
+    @printtest3(dtype, nmax, ix, incx, iy, incy, iz, incz, n)
+
+    x_exp, x0, y0, z0 = makesignals3(dtype, nmax)
+    rx = fast_args2range(ix, incx, n)
+    ry = fast_args2range(iy, incy, n)
+    rz = fast_args2range(iz, incz, n)
+    x_exp[rx] = y0[ry].*z0[rz]
+    
+    @testfunc_arr3(fast_scale!, x_exp, x0, ix, incx, y0, iy, incy, z0, iz, incz, n)
 end # for
 
 
