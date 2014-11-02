@@ -20,3 +20,17 @@ Scale columns of a `n` by `16` matrix by the first row elements.
 
 ![Scalenu](/perf/scalearr_incxnu.png)
 
+#### Op `x = y.*z`
+
+![Scale1](/perf/scalearr_oop_incx1.png)
+
+![Scalenu](/perf/scalearr_oop_incxnu.png)
+
+#### Op `x = x + y`
+
+![Scale1](/perf/scalearr_incx1.png)
+
+#### Op `x = y + z`
+
+![Scale1](/perf/scalearr_oop_incx1.png)
+

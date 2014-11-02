@@ -103,6 +103,48 @@ for dtype in TYPES,
     @testfunc_arr3(fast_scale!, x_exp, x0, ix, incx, y0, iy, incy, z0, iz, incz, n)
 end # for
 
+println("fast_add!(x, ix, incx, y, iy, incy, n) ...")
+for dtype in TYPES,
+    ix in IX,
+    (incx, incy) in INC2,
+    nmax in (FastArrayOps.NLIM_ADDARR-1, FastArrayOps.NLIM_ADDARR+1)
+    
+    iy = ix
+    nx = nmax2nel(ix, incx, nmax)
+    ny = nmax2nel(iy, incy, nmax)
+    n = min(nx, ny)
+    @printtest2(dtype, nmax, ix, incx, iy, incy, n)
+
+    x_exp, x0, y0 = makesignals2(dtype, nmax)
+    rx = fast_args2range(ix, incx, n)
+    ry = fast_args2range(iy, incy, n)
+    x_exp[rx] .+= y0[ry]
+    
+    @testfunc_arr2(fast_add!, x_exp, x0, ix, incx, y0, iy, incy, n)
+end # for
+
+println("fast_add!(x, ix, incx, y, iy, incy, z, iz, incz, n) ...")
+for dtype in TYPES,
+    ix in IX,
+    (incx, incy, incz) in INC3,
+    nmax in (FastArrayOps.NLIM_ADDARR_OOP-1, FastArrayOps.NLIM_ADDARR_OOP+1)
+    
+    iy = ix
+    iz = ix
+    nx = nmax2nel(ix, incx, nmax)
+    ny = nmax2nel(iy, incy, nmax)
+    nz = nmax2nel(iz, incz, nmax)
+    n = min(min(nx, ny), nz)
+    @printtest3(dtype, nmax, ix, incx, iy, incy, iz, incz, n)
+
+    x_exp, x0, y0, z0 = makesignals3(dtype, nmax)
+    rx = fast_args2range(ix, incx, n)
+    ry = fast_args2range(iy, incy, n)
+    rz = fast_args2range(iz, incz, n)
+    x_exp[rx] = y0[ry] .+ z0[rz]
+    
+    @testfunc_arr3(fast_add!, x_exp, x0, ix, incx, y0, iy, incy, z0, iz, incz, n)
+end # for
 
 println("fast_copy!(x, ix, incx, y, iy, incy, n) ...")
 for dtype in TYPES,

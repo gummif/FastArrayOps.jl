@@ -2,7 +2,9 @@ module FastArrayOps
 import Base.LinAlg: BlasReal, BlasComplex, BlasFloat, BlasInt, BlasChar
 const libblas = Base.libblas_name
 
-export fast_scale!, unsafe_fast_scale!, fast_copy!, unsafe_fast_copy!
+export fast_scale!, unsafe_fast_scale!, 
+       fast_add!,   unsafe_fast_add!,
+       fast_copy!,  unsafe_fast_copy!
 export @fast_check1, @fast_check2, nmax2nel, nel2nmax, fast_args2range, fast_range2args
 
 ## CONSTANTS
@@ -12,6 +14,9 @@ const NLIM_SCALE_OOP1 = 80
 const NLIM_SCALE_OOP2 = 100000
 const NLIM_SCALEARR = typemax(Int)
 const NLIM_SCALEARR_OOP = typemax(Int)
+const NLIM_ADDARR = 13
+const NLIM_ADDARR_OOP1 = 30
+const NLIM_ADDARR_OOP2 = 100000
 const NLIM_COPY1 = 80
 const NLIM_COPY2 = 100000
 
@@ -54,10 +59,10 @@ include("macros.jl")
 
 
 for (fscal, fcopy, faxpy, ftbmv, fsbmv, elty) in (
-                        (:dscal_,:dcopy_,:daxpy_,:dtbmv_,:dsbmv_,:Float64), 
-                        (:sscal_,:scopy_,:saxpy_,:stbmv_,:ssbmv_,:Float32),
-                        (:zscal_,:zcopy_,:zaxpy_,:ztbmv_,:zsbmv_,:Complex128), 
-                        (:cscal_,:ccopy_,:caxpy_,:ctbmv_,:csbmv_,:Complex64))
+                        (:dscal_, :dcopy_, :daxpy_, :dtbmv_, :dsbmv_, :Float64), 
+                        (:sscal_, :scopy_, :saxpy_, :stbmv_, :ssbmv_, :Float32),
+                        (:zscal_, :zcopy_, :zaxpy_, :ztbmv_, :zsbmv_, :Complex128), 
+                        (:cscal_, :ccopy_, :caxpy_, :ctbmv_, :csbmv_, :Complex64))
 
 ## SCALE METHODS
 
@@ -229,12 +234,114 @@ end # eval begin
 end # for
 
 
+## ADD METHODS
+
+for (f, isunsafe) in ( (:fast_add!, false), (:unsafe_fast_add!, true) )
+@eval begin
+
+# x = x + y
+# =========
+# general
+function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, n::Int)
+    $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
+    if n < $NLIM_ADDARR #*mul # || n*mul > $NLIM_SCALEARR
+        @addarr_for(x, ix, incx, y, iy, incy, n, $FAO_ZERO, $FAO_ONE)
+    else
+        @axpy_blas($(string(faxpy)), $(elty), x, ix, incx, y, iy, incy, $FAO_ONE, n)
+    end
+    return x
+end
+# inceq
+function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, n::Int)
+    $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
+    if n < $NLIM_ADDARR
+        @addarr_for_inceq(x, ix, incx, y, iy, n, $FAO_ONE)
+    else
+        @axpy_blas($(string(faxpy)), $(elty), x, ix, incx, y, iy, incx, $FAO_ONE, n)
+    end
+    return x
+end
+# inc1
+function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, n::Int)
+    $isunsafe || @fast_check2(x, ix, $FAO_ONE, y, iy, $FAO_ONE, n)
+    if n < $NLIM_ADDARR
+        @addarr_for_inc1(x, ix, y, iy, n, $FAO_ONE)
+    else
+        @axpy_blas($(string(faxpy)), $(elty), x, ix, $FAO_ONE, y, iy, $FAO_ONE, $FAO_ONE, n)
+    end
+    return x
+end
+# inc1ieq
+function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, n::Int)
+    $isunsafe || @fast_check2(x, ix, $FAO_ONE, y, ix, $FAO_ONE, n)
+    if n < $NLIM_ADDARR
+        @addarr_for_inc1ieq(x, ix, y, n, $FAO_ONE)
+    else
+        @axpy_blas($(string(faxpy)), $(elty), x, ix, $FAO_ONE, y, ix, $FAO_ONE, $FAO_ONE, n)
+    end
+    return x
+end
+
+# x = y + z
+# =========
+# general
+function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, z::Array{$elty}, iz::Int, incz::Int, n::Int)
+    $isunsafe || @fast_check3(x, ix, incx, y, iy, incy, z, iz, incz, n)
+    if n < $NLIM_ADDARR_OOP1 || n > $NLIM_ADDARR_OOP2 #*mul # || n*mul > $NLIM_SCALEARR
+        @addarr_foroop(x, ix, incx, y, iy, incy, z, iz, incz, n, $FAO_ZERO, $FAO_ONE)
+    else
+        @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incy, n)
+        @axpy_blas($(string(faxpy)), $(elty), x, ix, incx, z, iz, incz, $FAO_ONE, n)
+    end
+    return x
+end
+# inceq
+function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, z::Array{$elty}, iz::Int, n::Int)
+    $isunsafe || @fast_check3(x, ix, incx, y, iy, incx, z, iz, incx, n)
+    if n < $NLIM_ADDARR_OOP1 || n > $NLIM_ADDARR_OOP2
+        @addarr_foroop_inceq(x, ix, incx, y, iy, z, iz, n, $FAO_ONE)
+    else
+        @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incx, n)
+        @axpy_blas($(string(faxpy)), $(elty), x, ix, incx, z, iz, incx, $FAO_ONE, n)
+    end
+    return x
+end
+# inc1
+function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, z::Array{$elty}, iz::Int, n::Int)
+    $isunsafe || @fast_check3(x, ix, $FAO_ONE, y, iy, $FAO_ONE, z, iz, $FAO_ONE, n)
+    if n < $NLIM_ADDARR_OOP1 || n > $NLIM_ADDARR_OOP2
+        @addarr_foroop_inc1(x, ix, y, iy, z, iz, n, $FAO_ONE)
+    else
+        @copy_blas($(string(fcopy)), $(elty), x, ix, $FAO_ONE, y, iy, $FAO_ONE, n)
+        @axpy_blas($(string(faxpy)), $(elty), x, ix, $FAO_ONE, z, iz, $FAO_ONE, $FAO_ONE, n)
+    end
+    return x
+end
+# inc1ieq
+function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, z::Array{$elty}, n::Int)
+    $isunsafe || @fast_check3(x, ix, $FAO_ONE, y, ix, $FAO_ONE, z, ix, $FAO_ONE, n)
+    if n < $NLIM_ADDARR_OOP1 || n > $NLIM_ADDARR_OOP2
+        @addarr_foroop_inc1ieq(x, ix, y, z, n, $FAO_ONE)
+    else
+        @copy_blas($(string(fcopy)), $(elty), x, ix, $FAO_ONE, y, ix, $FAO_ONE, n)
+        @axpy_blas($(string(faxpy)), $(elty), x, ix, $FAO_ONE, z, ix, $FAO_ONE, $FAO_ONE, n)
+    end
+    return x
+end
+
+
+
+end # eval begin
+end # for
+
+
 ## COPY METHODS
 
 for (f, isunsafe) in ( (:fast_copy!, false), (:unsafe_fast_copy!, true) )
 @eval begin
 
 # x = y
+# =====
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, n::Int)
     $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)

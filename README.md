@@ -15,6 +15,7 @@ Currently under developement with the following operations implemented:
 
 * scale by scalar
 * scale by array
+* add array
 * copy array
 
 See license (MIT) in LICENSE.md.
@@ -99,11 +100,17 @@ Scale columns of a `n` by `16` matrix by the first row elements.
 ![Scale1](/perf/scale_oop_incx1.png)
 ![Scale12](/perf/scale_oop_incxnu.png)
 
+##### Op `x = x + y`
 
+![Scale1](/perf/scalearr_incx1.png)
+
+##### Op `x = y + z`
+
+![Scale1](/perf/scalearr_oop_incx1.png)
 
 TODO
 ---------
 
-* inceqieq cases
+* add inceqieq macros
 
 
