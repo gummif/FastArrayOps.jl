@@ -29,20 +29,21 @@ type Addscal_incx1 <: FuncType end
 type Addscal_oop_incx1 <: FuncType end
 # copy
 
-const METHODLIST = ((Scale_incx1, "scale (ix=1, incx=1)", STDNRUNS, STDCP, STDCFGS),
-                     (Scale_incxnu, "scale (ix=2, incx=40)", STDNRUNS<<3, STDCP, STDCFGS[6:end]),
-                     (Scale_2d_incx1, "scale 2-d (columns)", STDNRUNS>>5, STDCP, STDCFGS),
-                     (Scale_oop_incx1, "scale oop (ix,iy=1, incx,incy=1)", STDNRUNS, STDCP, STDCFGS),
-                     (Scale_oop_incxnu, "scale oop (ix,iy=2, incx,incy=40)", STDNRUNS<<1, STDCP, STDCFGS[6:end]),
-                     (Scalearr_incx1, "scale by Array (ix=1, incx=1)", STDNRUNS>>3, [2,4,6,7], STDCFGS),
-                     (Scalearr_incxnu, "scale by Array (ix=2, incx=40)", STDNRUNS, [4,6,7], STDCFGS[6:end]),
-                     (Scalearr_oop_incx1, "scale by Array oop (ix=1, incx=1)", STDNRUNS>>3, [2,4,6,7], STDCFGS),
-                     (Scalearr_oop_incxnu, "scale by Array oop (ix=2, incx=40)", STDNRUNS, [4,6,7], STDCFGS[6:end]),
-                     (Addarr_incx1, "add Array (ix=1, incx=1)", STDNRUNS>>3, [4,5,6,7], STDCFGS),
-                     (Addarr_oop_incx1, "add Array oop (ix=1, incx=1)", STDNRUNS>>3, [4,5,6,7], STDCFGS),
-                     (Addscal_incx1, "add Array*scalar (ix=1, incx=1)", STDNRUNS>>3, [4,5,6,7], STDCFGS),
-                     (Addscal_oop_incx1, "add Array*scalar oop (ix=1, incx=1)", STDNRUNS>>3, [4,5,6,7], STDCFGS),
-                        )
+const METHODLIST = (
+    (Scale_incx1,       "x = a*x (i=1, inc=1)",     STDNRUNS, STDCP, STDCFGS),
+    (Scale_incxnu,      "x = a*x (i=2, inc=40)",    STDNRUNS<<3, STDCP, STDCFGS[6:end]),
+    (Scale_2d_incx1,    "x = a*x 2-d (columns)",    STDNRUNS>>5, STDCP, STDCFGS),
+    (Scale_oop_incx1,   "x = a*y (i=1, inc=1)",     STDNRUNS, STDCP, STDCFGS),
+    (Scale_oop_incxnu,  "x = a*y (i=2, inc=40)",    STDNRUNS<<1, STDCP, STDCFGS[6:end]),
+    (Scalearr_incx1,    "x = x.*y (i=1, inc=1)",    STDNRUNS>>3, [2,4,6,7], STDCFGS),
+    (Scalearr_incxnu,   "x = x.*y (i=2, inc=40)",   STDNRUNS, [4,6,7], STDCFGS[6:end]),
+    (Scalearr_oop_incx1, "x = y.*z (i=1, inc=1)",   STDNRUNS>>3, [2,4,6,7], STDCFGS),
+    (Scalearr_oop_incxnu, "x = y.*z (i=2, inc=40)", STDNRUNS, [4,6,7], STDCFGS[6:end]),
+    (Addarr_incx1,      "x = x + y (i=1, inc=1)",   STDNRUNS>>3, [4,5,6,7], STDCFGS),
+    (Addarr_oop_incx1,  "x = y + z (i=1, inc=1)",   STDNRUNS>>3, [4,5,6,7], STDCFGS),
+    (Addscal_incx1,     "x = x + a*y (i=1, inc=1)", STDNRUNS>>3, [4,5,6,7], STDCFGS),
+    (Addscal_oop_incx1, "x = y + a*z (i=1, inc=1)", STDNRUNS>>3, [4,5,6,7], STDCFGS),
+          )
 const NM = length(METHODLIST)
 
 global bm_method, bm_title, chooseproc, cfgs, FUNT, Nruns
@@ -56,7 +57,7 @@ for mi = 1:NM   #NM
     t_b = time()
     println("time: ", string(round(t_b-t_a, 1)), "s\n")
     if PLOTBM
-        savetableimg(rtable, bm_title, bm_method, FAOproc, chooseproc)
+        savetableimg(rtable, bm_title, string("./master/", string(FUNT())), FAOproc, chooseproc)
     end
 end
 

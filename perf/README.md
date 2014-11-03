@@ -2,7 +2,7 @@
 Benchmarks
 ---------
 
-All results can bee seen in RESULTS.md.
+All results can bee seen in RESULTS.md, or as a [html/svg version](http://gummif.github.io/FAO/master/index.html)
 
 * Benchmarks with `Float64` Arrays.
 * Out-of-place functions are marked with `oop`. 

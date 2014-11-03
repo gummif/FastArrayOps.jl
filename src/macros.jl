@@ -29,272 +29,133 @@ end
 
 ## FOR-LOOP MACROS
 
-# scale by scalar
-# x = a*x
-# x = a*y
-# scale by array
-# x = x.*y
-# x = y.*z
-# add scalar
-# x = x + a
-# x = y + a
-# add array
-# x = x + y
-# x = y + z
-# add array times scalar
-# x = x + a*y
-# x = y + a*z
-# copy array
-# x = y
+# name convention, binary operations: 
+# op(a, x) = scalarr1, op(x, a) = arr1scal
+# op(x, y) = arr2xy, op(y, x) = arr2yx
+# foroop for same variable on both sides of =
 
-
-# x = a*x
-macro scale_for(x, ix, incx, a, n, one)
+# x = op(a, x)
+macro scalarr1_for(op, x, ix, incx, a, n, one)
     quote
         $(esc(incx)) = abs($(esc(incx)))
         @inbounds for i = $(esc(ix)):$(esc(incx)):$(esc(ix))-$(esc(one))+$(esc(n))*$(esc(incx))
-            $(esc(x))[i] *= $(esc(a))
+            $(esc(x))[i] = $(esc(op))( $(esc(a)), $(esc(x))[i] )
         end
     end
 end
-macro scale_for_inc1(x, ix, a, n, one)
+macro scalarr1_for_inc1(op, x, ix, a, n, one)
     quote
         @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] *= $(esc(a))
+            $(esc(x))[i] = $(esc(op))( $(esc(a)), $(esc(x))[i] )
         end
     end
 end
 
-# x = a*y
-macro scale_foroop(x, ix, incx, y, iy, incy, a, n, zero, one)
+# x = op(a, y)
+macro scalarr1_foroop(op, x, ix, incx, y, iy, incy, a, n, zero, one)
     quote
         $(esc(incx)) < 0 && ($(esc(ix)) = $(esc(ix))+($(esc(n))-$(esc(one)))*abs($(esc(incx))))
         $(esc(incy)) < 0 && ($(esc(iy)) = $(esc(iy))+($(esc(n))-$(esc(one)))*abs($(esc(incy))))
         @inbounds for i = $(esc(zero)):$(esc(n))-$(esc(one))
-            $(esc(x))[$(esc(ix))+i*$(esc(incx))] = $(esc(y))[$(esc(iy))+i*$(esc(incy))]*$(esc(a))
-        end
+            $(esc(x))[$(esc(ix))+i*$(esc(incx))] = $(esc(op))( $(esc(a)), $(esc(y))[$(esc(iy))+i*$(esc(incy))] )
+        end 
     end
 end
-macro scale_foroop_inceq(x, ix, incx, y, iy, a, n, one)
+macro scalarr1_foroop_inceq(op, x, ix, incx, y, iy, a, n, one)
     quote
         $(esc(incx)) = abs($(esc(incx)))
         d = $(esc(iy)) - $(esc(ix))
         @inbounds for i = $(esc(ix)):$(esc(incx)):$(esc(ix))+($(esc(n))-$(esc(one)))*$(esc(incx))
-            $(esc(x))[i] = $(esc(y))[d+i]*$(esc(a))
+            $(esc(x))[i] = $(esc(op))( $(esc(a)), $(esc(y))[d+i] )
         end
     end
 end
-macro scale_foroop_inc1(x, ix, y, iy, a, n, one)
+macro scalarr1_foroop_inc1(op, x, ix, y, iy, a, n, one)
     quote
         d = $(esc(iy)) - $(esc(ix))
         @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(y))[d+i]*$(esc(a))
+            $(esc(x))[i] = $(esc(op))( $(esc(a)), $(esc(y))[d+i] )
         end
     end
 end
-macro scale_foroop_inc1ieq(x, ix, y, a, n, one)
+macro scalarr1_foroop_inc1ieq(op, x, ix, y, a, n, one)
     quote
         @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(y))[i]*$(esc(a))
+            $(esc(x))[i] = $(esc(op))( $(esc(a)), $(esc(y))[i] )
         end
     end
 end
 
-# x = x.*y  (same as x = y with extra x*)
-macro scalearr_for(x, ix, incx, y, iy, incy, n, zero, one)
+# x = op(x, y)
+macro arr2xy_for(op, x, ix, incx, y, iy, incy, n, zero, one)
     quote
         $(esc(incx)) < 0 && ($(esc(ix)) = $(esc(ix))+($(esc(n))-$(esc(one)))*abs($(esc(incx))))
         $(esc(incy)) < 0 && ($(esc(iy)) = $(esc(iy))+($(esc(n))-$(esc(one)))*abs($(esc(incy))))
         @inbounds for i = $(esc(zero)):$(esc(n))-$(esc(one))
-            $(esc(x))[$(esc(ix))+i*$(esc(incx))] = $(esc(x))[$(esc(ix))+i*$(esc(incx))]*$(esc(y))[$(esc(iy))+i*$(esc(incy))]
-        end
+            $(esc(x))[$(esc(ix))+i*$(esc(incx))] = $(esc(op))( $(esc(x))[$(esc(ix))+i*$(esc(incx))], $(esc(y))[$(esc(iy))+i*$(esc(incy))] )
+        end 
     end
 end
-macro scalearr_for_inceq(x, ix, incx, y, iy, n, one)
+macro arr2xy_for_inceq(op, x, ix, incx, y, iy, n, one)
     quote
         $(esc(incx)) = abs($(esc(incx)))
         d = $(esc(iy)) - $(esc(ix))
         @inbounds for i = $(esc(ix)):$(esc(incx)):$(esc(ix))+($(esc(n))-$(esc(one)))*$(esc(incx))
-            $(esc(x))[i] = $(esc(x))[i]*$(esc(y))[d+i]
+            $(esc(x))[i] = $(esc(op))( $(esc(x))[i], $(esc(y))[d+i] )
         end
     end
 end
-macro scalearr_for_inc1(x, ix, y, iy, n, one)
+macro arr2xy_for_inc1(op, x, ix, y, iy, n, one)
     quote
         d = $(esc(iy)) - $(esc(ix))
         @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(x))[i]*$(esc(y))[d+i]
+            $(esc(x))[i] = $(esc(op))( $(esc(x))[i], $(esc(y))[d+i] )
         end
     end
 end
-macro scalearr_for_inc1ieq(x, ix, y, n, one)
+macro arr2xy_for_inc1ieq(op, x, ix, y, n, one)
     quote
         @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(x))[i]*$(esc(y))[i]
+            $(esc(x))[i] = $(esc(op))( $(esc(x))[i], $(esc(y))[i] )
         end
     end
 end
 
-# x = y.*z 
-macro scalearr_foroop(x, ix, incx, y, iy, incy, z, iz, incz, n, zero, one)
-    quote
-        $(esc(incx)) < 0 && ($(esc(ix)) = $(esc(ix))+($(esc(n))-$(esc(one)))*abs($(esc(incx))))
-        $(esc(incy)) < 0 && ($(esc(iy)) = $(esc(iy))+($(esc(n))-$(esc(one)))*abs($(esc(incy))))
-        $(esc(incz)) < 0 && ($(esc(iz)) = $(esc(iz))+($(esc(n))-$(esc(one)))*abs($(esc(incz))))
-        @inbounds for i = $(esc(zero)):$(esc(n))-$(esc(one))
-            $(esc(x))[$(esc(ix))+i*$(esc(incx))] = $(esc(y))[$(esc(iy))+i*$(esc(incy))]*$(esc(z))[$(esc(iz))+i*$(esc(incz))]
-        end
-    end
-end
-macro scalearr_foroop_inceq(x, ix, incx, y, iy, z, iz, n, one)
-    quote
-        $(esc(incx)) = abs($(esc(incx)))
-        dy = $(esc(iy)) - $(esc(ix))
-        dz = $(esc(iz)) - $(esc(ix))
-        @inbounds for i = $(esc(ix)):$(esc(incx)):$(esc(ix))+($(esc(n))-$(esc(one)))*$(esc(incx))
-            $(esc(x))[i] = $(esc(y))[dy+i]*$(esc(z))[dz+i]
-        end
-    end
-end
-macro scalearr_foroop_inc1(x, ix, y, iy, z, iz, n, one)
-    quote
-        dy = $(esc(iy)) - $(esc(ix))
-        dz = $(esc(iz)) - $(esc(ix))
-        @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(y))[dy+i]*$(esc(z))[dz+i]
-        end
-    end
-end
-macro scalearr_foroop_inc1ieq(x, ix, y, z, n, one)
-    quote
-        @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(y))[i]*$(esc(z))[i]
-        end
-    end
-end
-
-# x = x + a (same as x = a*x with +)
-macro add_for(x, ix, incx, a, n, one)
-    quote
-        $(esc(incx)) = abs($(esc(incx)))
-        @inbounds for i = $(esc(ix)):$(esc(incx)):$(esc(ix))+($(esc(n))-$(esc(one)))*$(esc(incx))
-            $(esc(x))[i] += $(esc(a))
-        end
-    end
-end
-macro add_for_inc1(x, ix, a, n, one)
-    quote
-        @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] += $(esc(a))
-        end
-    end
-end
-
-# x = y + a (same as x = a*y with +)
-macro add_foroop(x, ix, incx, y, iy, incy, a, n, zero, one)
-    quote
-        $(esc(incx)) < 0 && ($(esc(ix)) = $(esc(ix))+($(esc(n))-$(esc(one)))*abs($(esc(incx))))
-        $(esc(incy)) < 0 && ($(esc(iy)) = $(esc(iy))+($(esc(n))-$(esc(one)))*abs($(esc(incy))))
-        @inbounds for i = $(esc(zero)):$(esc(n))-$(esc(one))
-            $(esc(x))[$(esc(ix))+i*$(esc(incx))] = $(esc(y))[$(esc(iy))+i*$(esc(incy))] + $(esc(a))
-        end
-    end
-end
-macro add_foroop_inceq(x, ix, incx, y, iy, a, n, one)
-    quote
-        $(esc(incx)) = abs($(esc(incx)))
-        d = $(esc(iy)) - $(esc(ix))
-        @inbounds for i = $(esc(ix)):$(esc(incx)):$(esc(ix))+($(esc(n))-$(esc(one)))*$(esc(incx))
-            $(esc(x))[i] = $(esc(y))[d+i] + $(esc(a))
-        end
-    end
-end
-macro add_foroop_inc1(x, ix, y, iy, a, n, one)
-    quote
-        d = $(esc(iy)) - $(esc(ix))
-        @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(y))[d+i] + $(esc(a))
-        end
-    end
-end
-macro add_foroop_inc1ieq(x, ix, y, a, n, one)
-    quote
-        @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(y))[i] + $(esc(a))
-        end
-    end
-end
-
-# x = x + y (same as x = x.*y with +)
-macro addarr_for(x, ix, incx, y, iy, incy, n, zero, one)
-    quote
-        $(esc(incx)) < 0 && ($(esc(ix)) = $(esc(ix))+($(esc(n))-$(esc(one)))*abs($(esc(incx))))
-        $(esc(incy)) < 0 && ($(esc(iy)) = $(esc(iy))+($(esc(n))-$(esc(one)))*abs($(esc(incy))))
-        @inbounds for i = $(esc(zero)):$(esc(n))-$(esc(one))
-            $(esc(x))[$(esc(ix))+i*$(esc(incx))] = $(esc(x))[$(esc(ix))+i*$(esc(incx))] + $(esc(y))[$(esc(iy))+i*$(esc(incy))]
-        end
-    end
-end
-macro addarr_for_inceq(x, ix, incx, y, iy, n, one)
-    quote
-        $(esc(incx)) = abs($(esc(incx)))
-        d = $(esc(iy)) - $(esc(ix))
-        @inbounds for i = $(esc(ix)):$(esc(incx)):$(esc(ix))+($(esc(n))-$(esc(one)))*$(esc(incx))
-            $(esc(x))[i] = $(esc(x))[i] + $(esc(y))[d+i]
-        end
-    end
-end
-macro addarr_for_inc1(x, ix, y, iy, n, one)
-    quote
-        d = $(esc(iy)) - $(esc(ix))
-        @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(x))[i] + $(esc(y))[d+i]
-        end
-    end
-end
-macro addarr_for_inc1ieq(x, ix, y, n, one)
-    quote
-        @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(x))[i] + $(esc(y))[i]
-        end
-    end
-end
-
-# x = y + z (same as x = y.*z with +)
-macro addarr_foroop(x, ix, incx, y, iy, incy, z, iz, incz, n, zero, one)
+# x = op(y, z)
+macro arr2yz_foroop(op, x, ix, incx, y, iy, incy, z, iz, incz, n, zero, one)
     quote
         $(esc(incx)) < 0 && ($(esc(ix)) = $(esc(ix))+($(esc(n))-$(esc(one)))*abs($(esc(incx))))
         $(esc(incy)) < 0 && ($(esc(iy)) = $(esc(iy))+($(esc(n))-$(esc(one)))*abs($(esc(incy))))
         $(esc(incz)) < 0 && ($(esc(iz)) = $(esc(iz))+($(esc(n))-$(esc(one)))*abs($(esc(incz))))
         @inbounds for i = $(esc(zero)):$(esc(n))-$(esc(one))
-            $(esc(x))[$(esc(ix))+i*$(esc(incx))] = $(esc(y))[$(esc(iy))+i*$(esc(incy))] + $(esc(z))[$(esc(iz))+i*$(esc(incz))]
+            $(esc(x))[$(esc(ix))+i*$(esc(incx))] = $(esc(op))( $(esc(y))[$(esc(iy))+i*$(esc(incy))], $(esc(z))[$(esc(iz))+i*$(esc(incz))] )
         end
     end
 end
-macro addarr_foroop_inceq(x, ix, incx, y, iy, z, iz, n, one)
+macro arr2yz_foroop_inceq(op, x, ix, incx, y, iy, z, iz, n, one)
     quote
         $(esc(incx)) = abs($(esc(incx)))
         dy = $(esc(iy)) - $(esc(ix))
         dz = $(esc(iz)) - $(esc(ix))
         @inbounds for i = $(esc(ix)):$(esc(incx)):$(esc(ix))+($(esc(n))-$(esc(one)))*$(esc(incx))
-            $(esc(x))[i] = $(esc(y))[dy+i] + $(esc(z))[dz+i]
+            $(esc(x))[i] = $(esc(op))( $(esc(y))[dy+i], $(esc(z))[dz+i] )
         end
     end
 end
-macro addarr_foroop_inc1(x, ix, y, iy, z, iz, n, one)
+macro arr2yz_foroop_inc1(op, x, ix, y, iy, z, iz, n, one)
     quote
         dy = $(esc(iy)) - $(esc(ix))
         dz = $(esc(iz)) - $(esc(ix))
         @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(y))[dy+i] + $(esc(z))[dz+i]
+            $(esc(x))[i] = $(esc(op))( $(esc(y))[dy+i], $(esc(z))[dz+i] )
         end
     end
 end
-macro addarr_foroop_inc1ieq(x, ix, y, z, n, one)
+macro arr2yz_foroop_inc1ieq(op, x, ix, y, z, n, one)
     quote
         @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(y))[i] + $(esc(z))[i]
-        end
+            $(esc(x))[i] = $(esc(op))( $(esc(y))[i], $(esc(z))[i] )
+        end 
     end
 end
 
@@ -372,7 +233,7 @@ macro addarrscal_foroop_inc1ieq(x, ix, y, z, a, n, one)
 end
 
 
-# x = y  (same as x = a*y without the a*)
+# x = y  (same as x = op(a, y) without the op(a, ))
 macro copy_foroop(x, ix, incx, y, iy, incy, n, zero, one)
     quote
         $(esc(incx)) < 0 && ($(esc(ix)) = $(esc(ix))+($(esc(n))-$(esc(one)))*abs($(esc(incx))))
@@ -391,22 +252,36 @@ macro copy_foroop_inceq(x, ix, incx, y, iy, n, one)
         end
     end
 end
+# for inc1, inc1ieq use memcpy_c
 macro copy_foroop_inc1(x, ix, y, iy, n, one)
-    quote
-        d = $(esc(iy)) - $(esc(ix))
-        @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(y))[d+i]
-        end
-    end
+quote
+d = $(esc(iy)) - $(esc(ix))
+@inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
+$(esc(x))[i] = $(esc(y))[d+i]
+end
+end
 end
 macro copy_foroop_inc1ieq(x, ix, y, n, one)
-    quote
-        @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-            $(esc(x))[i] = $(esc(y))[i]
-        end
-    end
+quote
+@inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
+$(esc(x))[i] = $(esc(y))[i]
+end
+end
 end
 
+
+## C LIBRARY MACROS
+
+# x = y
+macro memcpy_c(elty, x, ix, y, iy, n)
+    quote
+        selty = sizeof($(esc(elty)))
+        px = convert(Ptr{$(esc(elty))},$(esc(x))) + ($(esc(ix))-1)*selty
+        py = convert(Ptr{$(esc(elty))},$(esc(y))) + ($(esc(iy))-1)*selty
+        ccall(:memcpy, Ptr{Void}, (Ptr{Void}, Ptr{Void}, Uint),
+          px, py, n*selty)
+    end
+end
 
 
 ## BLAS MACROS
@@ -428,8 +303,6 @@ end
 # x = y + a*z   # done: copy_blas, axpy_blas
 # copy array
 # x = y         # done: copy_blas
-
-
 
 # x = a*x
 macro scale_blas(f, elty, x, ix, incx, a, n)
