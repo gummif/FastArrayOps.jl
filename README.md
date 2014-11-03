@@ -11,6 +11,7 @@ Contains a large collection of benchmarks in `/perf`. They (should) show that th
 
 Different or new implementations or benchmark cases are welcome as issues or pull requests.
 
+Benchmarks are currently under developement for all cases and performance will likely improve as the benchmarks become more exstensive.
 
 See license (MIT) in LICENSE.md.
 

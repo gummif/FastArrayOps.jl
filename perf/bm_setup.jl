@@ -36,8 +36,9 @@ function runFAO(procs::Vector{Proc}, cfgs::Vector;
 
         for (i, cfg) in enumerate(cfgs)
             cfgname = string(cfg)
-            (nr, et) = run(p, cfg; nruns=nruns, allowgc=allowgc) #warm up
-            (nr, et) = run(p, cfg; nruns=nruns, allowgc=allowgc)
+            (nr, et) = run(p, cfg; nruns=2, allowgc=allowgc) #warm up
+            runs = max(div(nruns, cfg), 4)
+            (nr, et) = run(p, cfg; nruns=runs, allowgc=allowgc)
 
             bt.nruns[i, j] = nr
             bt.etime[i, j] = et
