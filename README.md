@@ -86,23 +86,23 @@ Benchmarks
 See directory `/perf` for code and setup details and further results.
 
 ##### Op `x = a*x`
-![Scale1](/perf/master/scale_incx1.png)
-![Scale12](/perf/master/scale_incxnu.png)
+![Scale1](http://gummif.github.io/FAO/master/scale_incx1.png)
+![Scale12](http://gummif.github.io/FAO/master/scale_incxnu.png)
 
 Scale columns of a `n` by `16` matrix by the first row elements.
-![Scale2d](/perf/master/scale_2d_incx1.png)
+![Scale2d](http://gummif.github.io/FAO/master/scale_2d_incx1.png)
 
 ##### Op `x = a*y`
-![Scale1](/perf/master/scale_oop_incx1.png)
-![Scale12](/perf/master/scale_oop_incxnu.png)
+![Scale1](http://gummif.github.io/FAO/master/scale_oop_incx1.png)
+![Scale12](http://gummif.github.io/FAO/master/scale_oop_incxnu.png)
 
 ##### Op `x = x + y`
 
-![Scale1](/perf/master/addarr_incx1.png)
+![Scale1](http://gummif.github.io/FAO/master/addarr_incx1.png)
 
 ##### Op `x = y + z`
 
-![Scale1](/perf/master/addarr_oop_incx1.png)
+![Scale1](http://gummif.github.io/FAO/master/addarr_oop_incx1.png)
 
 TODO
 ---------
