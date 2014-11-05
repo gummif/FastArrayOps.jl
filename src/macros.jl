@@ -254,20 +254,39 @@ macro copy_foroop_inceq(x, ix, incx, y, iy, n, one)
 end
 # for inc1, inc1ieq use memcpy_c
 macro copy_foroop_inc1(x, ix, y, iy, n, one)
-quote
-d = $(esc(iy)) - $(esc(ix))
-@inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-$(esc(x))[i] = $(esc(y))[d+i]
-end
-end
+    quote
+        d = $(esc(iy)) - $(esc(ix))
+        @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
+            $(esc(x))[i] = $(esc(y))[d+i]
+        end
+    end
 end
 macro copy_foroop_inc1ieq(x, ix, y, n, one)
-quote
-@inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
-$(esc(x))[i] = $(esc(y))[i]
+    quote
+        @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
+            $(esc(x))[i] = $(esc(y))[i]
+        end
+    end
 end
+
+# x = a
+macro fill_for(x, ix, incx, a, n, one)
+    quote
+        $(esc(incx)) = abs($(esc(incx)))
+        @inbounds for i = $(esc(ix)):$(esc(incx)):$(esc(ix))-$(esc(one))+$(esc(n))*$(esc(incx))
+            $(esc(x))[i] = $(esc(a))
+        end
+    end
 end
+# for inc1 use memset_c
+macro fill_for_inc1(x, ix, a, n, one)
+    quote
+        @inbounds for i = $(esc(ix)):$(esc(ix))-$(esc(one))+$(esc(n))
+            $(esc(x))[i] = $(esc(a))
+        end
+    end
 end
+
 
 
 ## C LIBRARY MACROS
@@ -279,10 +298,20 @@ macro memcpy_c(elty, x, ix, y, iy, n)
         px = convert(Ptr{$(esc(elty))},$(esc(x))) + ($(esc(ix))-1)*selty
         py = convert(Ptr{$(esc(elty))},$(esc(y))) + ($(esc(iy))-1)*selty
         ccall(:memcpy, Ptr{Void}, (Ptr{Void}, Ptr{Void}, Uint),
-          px, py, n*selty)
+          px, py, $(esc(n))*selty)
     end
 end
 
+# x = a
+macro memset_c(elty, x, ix, a, n)
+    quote
+        a::Int32 = $(esc(a))
+        selty = sizeof($(esc(elty)))
+        px = convert(Ptr{$(esc(elty))},$(esc(x))) + ($(esc(ix))-1)*selty
+        ccall(:memset, Ptr{Void}, (Ptr{Void}, Int32, Csize_t),
+          px, a, $(esc(n))*selty)
+    end
+end
 
 ## BLAS MACROS
 

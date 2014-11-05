@@ -5,7 +5,8 @@ const libblas = Base.libblas_name
 export fast_scale!,     unsafe_fast_scale!, 
        fast_add!,       unsafe_fast_add!,
        fast_addscal!,   unsafe_fast_addscal!,
-       fast_copy!,      unsafe_fast_copy!
+       fast_copy!,      unsafe_fast_copy!,
+       fast_fill!,      unsafe_fast_fill!
 export @fast_check1, @fast_check2, @fast_check3, nmax2nel, nel2nmax, fast_args2range, fast_range2args
 
 ## CONSTANTS
@@ -25,6 +26,7 @@ const NLIM_ADDARRSCAL_OOP1 = 30
 const NLIM_ADDARRSCAL_OOP2 = 100000
 const NLIM_COPY1 = 80
 const NLIM_COPY2 = 100000
+const NLIM_FILL = 13
 
 const FAO_ZERO = zero(Int)
 const FAO_ONE = one(Int)
@@ -58,6 +60,30 @@ function fast_range2args(r::Range)
     end
 end
 
+# utils for 0 fill
+inttype(::Type{Float32}) = Int32
+inttype(::Type{Float64}) = Int64
+inttype(::Type{Complex64}) = Int64
+inttype(::Type{Complex128}) = Int128
+function fast_reinterpret1{T<:Number}(::Type{T}, a::Array)
+    @assert length(a) == 1
+    ccall(:jl_reshape_array, Array{T,1}, (Any, Any, Any), Array{T,1}, a, (1,))
+end
+# are float 0s zero bits?
+function zerobits()
+    v = reinterpret(inttype(Float32), convert(Float32, 0))
+    v += reinterpret(inttype(Float64), convert(Float64, 0))
+    v += fast_reinterpret1(inttype(Complex64), [convert(Complex64, 0)])[1]
+    v += fast_reinterpret1(inttype(Complex128), [convert(Complex128, 0)])[1]
+    if v == 0
+        return true
+    else
+        return false
+    end
+end
+const ZEROFLOAT = zerobits()
+
+
 ## MACROS
 include("macros.jl")
 
@@ -66,6 +92,7 @@ const OP_ADD = +
 const OP_SUB = -
 const OP_MUL = *
 const OP_DIV = /
+
 
 for (fscal, fcopy, faxpy, ftbmv, fsbmv, elty) in (
                         (:dscal_, :dcopy_, :daxpy_, :dtbmv_, :dsbmv_, :Float64), 
@@ -547,6 +574,34 @@ function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, n::Int)
     return x
 end
 
+
+end # eval begin
+end # for
+
+
+## FILL METHODS
+
+for (f, isunsafe) in ( (:fast_fill!, false), (:unsafe_fast_fill!, true) )
+@eval begin
+
+# x = a
+# =======
+# general
+function ($f)(x::Array{$elty}, ix::Int, incx::Int, a::$elty, n::Int)
+    $isunsafe || @fast_check1(x, ix, incx, n)
+    @fill_for(x, ix, incx, a, n, $FAO_ONE)
+    return x
+end
+# inc1
+function ($f)(x::Array{$elty}, ix::Int, a::$elty, n::Int)
+    $isunsafe || @fast_check1(x, ix, $FAO_ONE, n)
+    if a == 0 && n > $NLIM_FILL && ZEROFLOAT
+        @memset_c($(elty), x, ix, a, n)
+    else
+        @fill_for_inc1(x, ix, a, n, $FAO_ONE)
+    end
+    return x
+end
 
 end # eval begin
 end # for

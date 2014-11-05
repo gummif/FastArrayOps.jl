@@ -21,6 +21,8 @@ type Scalearr_incx1 <: FuncType end
 type Scalearr_incxnu <: FuncType end
 type Scalearr_oop_incx1 <: FuncType end
 type Scalearr_oop_incxnu <: FuncType end
+# add, scalar
+
 # add, array
 type Addarr_incx1 <: FuncType end
 type Addarr_oop_incx1 <: FuncType end
@@ -28,6 +30,11 @@ type Addarr_oop_incx1 <: FuncType end
 type Addscal_incx1 <: FuncType end
 type Addscal_oop_incx1 <: FuncType end
 # copy
+type Copy_incx1 <: FuncType end
+type Copy_incxnu <: FuncType end
+# fill
+type Fill_incx1 <: FuncType end
+type Fill_incxnu <: FuncType end
 
 const METHODLIST = (
     (Scale_incx1,       "x = a*x (i=1, inc=1)",     STDNRUNS, STDCP, STDCFGS),
@@ -43,11 +50,15 @@ const METHODLIST = (
     (Addarr_oop_incx1,  "x = y + z (i=1, inc=1)",   STDNRUNS>>3, [4,5,6,7], STDCFGS),
     (Addscal_incx1,     "x = x + a*y (i=1, inc=1)", STDNRUNS>>3, [4,5,6,7], STDCFGS),
     (Addscal_oop_incx1, "x = y + a*z (i=1, inc=1)", STDNRUNS>>3, [4,5,6,7], STDCFGS),
+    (Copy_incx1,        "x = y (i=1, inc=1)",       STDNRUNS, STDCP, STDCFGS),
+    (Copy_incxnu,       "x = y (i=2, inc=40)",      STDNRUNS<<3, [2,4,5,6,7], STDCFGS),
+    (Fill_incx1,        "x = a (a=0, i=1, inc=1)",  STDNRUNS<<3, [2,4,6,7], STDCFGS),
+    (Fill_incxnu,       "x = a (a=0, i=2, inc=40)", STDNRUNS<<3, [2,4,6,7], STDCFGS),
           )
 const NM = length(METHODLIST)
 
 global bm_method, bm_title, chooseproc, cfgs, FUNT, Nruns
-for mi = 1:NM   #NM
+for mi = NM-1:NM   #NM
     FUNT, bm_title, Nruns, chooseproc, cfgs = METHODLIST[mi]
     bm_method = string(FUNT())
     println(bm_title)

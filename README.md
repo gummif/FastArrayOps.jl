@@ -53,6 +53,8 @@ fast_addscal!(x, ix, incx, y, iy, incy, a, n)               # x = x + a*y
 fast_addscal!(x, ix, incx, y, iy, incy, z, iz, incz, a, n)  # x = y + a*z
 # copy array
 fast_copy!(x, ix, incx, y, iy, incy, n)                     # x = y
+# fill
+fast_fill!(x, ix, incx, a, n)                               # x = a
 ```
 
 ```julia
@@ -94,7 +96,9 @@ Scale columns of a `n` by `16` matrix by the first row elements.
 
 ##### Op `x = a*y`
 ![Scale1](http://gummif.github.io/FAO/master/scale_oop_incx1.png)
-![Scale12](http://gummif.github.io/FAO/master/scale_oop_incxnu.png)
+
+##### Op `x = a`
+![Scale12](http://gummif.github.io/FAO/master/fill_incx1.png)
 
 ##### Op `x = x + y`
 

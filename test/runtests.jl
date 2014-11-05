@@ -248,6 +248,23 @@ for dtype in TYPES,
     @testfunc_arr2(fast_copy!, x_exp, x0, ix, incx, y0, iy, incy, n)
 end # for
 
+println("fast_fill!(x, ix, incx, a, n) ...")
+for dtype in TYPES,
+    ix in IX,
+    incx in INC1,
+    nmax in (FastArrayOps.NLIM_FILL-1, FastArrayOps.NLIM_FILL+1),
+    aa in (ANUM, 0)
+    
+    n = nmax2nel(ix, incx, nmax)
+    @printtest1(dtype, nmax, ix, incx, n)
+
+    x_exp, x0 = makesignals1(dtype, nmax)
+    a = convert(dtype,aa)
+    x_exp[fast_args2range(ix, incx, n)] = a
+    
+    @testfunc_arr1a(fast_fill!, x_exp, x0, ix, incx, a, n)
+end # for
+
 println("\nTESTING: SUCCESS")
 
 
