@@ -13,17 +13,17 @@ macro fast_check2(x, ix, incx, y, iy, incy, n)
     quote
         (0 != $(esc(incx)) && 0 != $(esc(incy))) || throw(ArgumentError("zero increment"))
         (0 < $(esc(ix)) && 0 < $(esc(iy))) || throw(BoundsError())
-        $(esc(ix))-($(esc(n))-1)*abs($(esc(incx))) <= length($(esc(x))) || throw(BoundsError())
-        $(esc(iy))-($(esc(n))-1)*abs($(esc(incy))) <= length($(esc(y))) || throw(BoundsError())
+        $(esc(ix))+($(esc(n))-1)*abs($(esc(incx))) <= length($(esc(x))) || throw(BoundsError())
+        $(esc(iy))+($(esc(n))-1)*abs($(esc(incy))) <= length($(esc(y))) || throw(BoundsError())
     end
 end
 macro fast_check3(x, ix, incx, y, iy, incy, z, iz, incz, n)
     quote
         (0 != $(esc(incx)) && 0 != $(esc(incy)) && 0 != $(esc(incz))) || throw(ArgumentError("zero increment"))
         (0 < $(esc(ix)) && 0 < $(esc(iy)) && 0 < $(esc(iz))) || throw(BoundsError())
-        $(esc(ix))-($(esc(n))-1)*abs($(esc(incx))) <= length($(esc(x))) || throw(BoundsError())
-        $(esc(iy))-($(esc(n))-1)*abs($(esc(incy))) <= length($(esc(y))) || throw(BoundsError())
-        $(esc(iz))-($(esc(n))-1)*abs($(esc(incz))) <= length($(esc(z))) || throw(BoundsError())
+        $(esc(ix))+($(esc(n))-1)*abs($(esc(incx))) <= length($(esc(x))) || throw(BoundsError())
+        $(esc(iy))+($(esc(n))-1)*abs($(esc(incy))) <= length($(esc(y))) || throw(BoundsError())
+        $(esc(iz))+($(esc(n))-1)*abs($(esc(incz))) <= length($(esc(z))) || throw(BoundsError())
     end
 end
 
