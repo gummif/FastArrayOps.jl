@@ -24,6 +24,8 @@ Install via the package manager and load with `using`
 julia> Pkg.add("FastArrayOps")
 julia> using FastArrayOps
 ```
+*Warning:* Many of the functions in the package might be slower than the equivalent function in `Base` for one-time evaluation (compile time in particular). If used multiple times in a code (e.g. loops or iterations) performance gains become more noticable.
+
 
 API
 ---------
@@ -59,9 +61,9 @@ fast_fill!(x, ix, incx, a, n)                               # x = a
 
 ```julia
 # utilities
-@fast_check1(x, ix, incx, n)    # bounds check macros
-@fast_check2(x, ix, incx, y, iy, incy, n)
-@fast_check3(x, ix, incx, y, iy, incy, z, iz, incz, n)
+fast_check1(x, ix, incx, n)     # bounds check functions
+fast_check2(x, ix, incx, y, iy, incy, n)
+fast_check3(x, ix, incx, y, iy, incy, z, iz, incz, n)
 nmax2nel(i, inc, nmax)          # number of elements given max index
 nel2nmax(i, inc, nel)           # max index for nmax2nel returning nel
 fast_args2range(i, inc, n)      # convert FAO arguments to index range

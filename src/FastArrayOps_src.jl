@@ -6,7 +6,7 @@ export fast_scale!,     unsafe_fast_scale!,
        fast_addscal!,   unsafe_fast_addscal!,
        fast_copy!,      unsafe_fast_copy!,
        fast_fill!,      unsafe_fast_fill!
-export @fast_check1, @fast_check2, @fast_check3, nmax2nel, nel2nmax, fast_args2range, fast_range2args
+export fast_check1, fast_check2, fast_check3, nmax2nel, nel2nmax, fast_args2range, fast_range2args
 
 # WARNING: FastArrayOps.jl gets overwritten by FastArrayOps_src.jl when running make.jl
 
@@ -57,6 +57,19 @@ function fast_range2args(r::Range)
     else
         return (last(r), inc, length(r))
     end
+end
+
+function fast_check1(x, ix, incx, n)
+    ##!fast_check1
+    return 0
+end
+function fast_check2(x, ix, incx, y, iy, incy, n)
+    ##!fast_check2
+    return 0
+end
+function fast_check3(x, ix, incx, y, iy, incy, z, iz, incz, n)
+    ##!fast_check3
+    return 0
 end
 
 # utils for 0 fill
