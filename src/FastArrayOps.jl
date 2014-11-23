@@ -6,7 +6,7 @@ export fast_scale!,     unsafe_fast_scale!,
        fast_addscal!,   unsafe_fast_addscal!,
        fast_copy!,      unsafe_fast_copy!,
        fast_fill!,      unsafe_fast_fill!
-export @fast_check1, @fast_check2, @fast_check3, nmax2nel, nel2nmax, fast_args2range, fast_range2args
+export fast_check1, fast_check2, fast_check3, nmax2nel, nel2nmax, fast_args2range, fast_range2args
 
 # WARNING: FastArrayOps.jl gets overwritten by FastArrayOps_src.jl when running make.jl
 
@@ -57,6 +57,31 @@ function fast_range2args(r::Range)
     else
         return (last(r), inc, length(r))
     end
+end
+
+function fast_check1(x, ix, incx, n)
+    # src: fast_check1.jl
+0 < incx || throw(ArgumentError("non-positive increment"))
+0 < ix || throw(BoundsError())
+ix+(n-1)*incx <= length(x) || throw(BoundsError())
+    return 0
+end
+function fast_check2(x, ix, incx, y, iy, incy, n)
+    # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    return 0
+end
+function fast_check3(x, ix, incx, y, iy, incy, z, iz, incz, n)
+    # src: fast_check3.jl
+(0 != incx && 0 != incy && 0 != incz) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy && 0 < iz) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+iz+(n-1)*abs(incz) <= length(z) || throw(BoundsError())
+    return 0
 end
 
 # utils for 0 fill
