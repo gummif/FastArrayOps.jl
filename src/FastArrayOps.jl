@@ -1,13 +1,14 @@
 module FastArrayOps
 import Base.LinAlg: BlasReal, BlasComplex, BlasFloat, BlasInt, BlasChar
 const libblas = Base.libblas_name
-
 export fast_scale!,     unsafe_fast_scale!, 
        fast_add!,       unsafe_fast_add!,
        fast_addscal!,   unsafe_fast_addscal!,
        fast_copy!,      unsafe_fast_copy!,
        fast_fill!,      unsafe_fast_fill!
 export @fast_check1, @fast_check2, @fast_check3, nmax2nel, nel2nmax, fast_args2range, fast_range2args
+
+# WARNING: FastArrayOps.jl gets overwritten by FastArrayOps_src.jl when running make.jl
 
 ## CONSTANTS
 
@@ -82,16 +83,6 @@ end
 const ZEROFLOAT = zerobits()
 
 
-## MACROS
-include("macros.jl")
-
-
-const OP_ADD = +
-const OP_SUB = -
-const OP_MUL = *
-const OP_DIV = /
-
-
 for (fscal, fcopy, faxpy, ftbmv, fsbmv, elty) in (
                         (:dscal_, :dcopy_, :daxpy_, :dtbmv_, :dsbmv_, :Float64), 
                         (:sscal_, :scopy_, :saxpy_, :stbmv_, :ssbmv_, :Float32),
@@ -107,21 +98,50 @@ for (f, isunsafe) in ( (:fast_scale!, false), (:unsafe_fast_scale!, true) )
 # =======
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check1(x, ix, incx, n)
+    $isunsafe || begin
+        # src: fast_check1.jl
+0 < incx || throw(ArgumentError("non-positive increment"))
+0 < ix || throw(BoundsError())
+ix+(n-1)*incx <= length(x) || throw(BoundsError())
+    end
     if n < $NLIM_SCALE*incx
-        @scalarr1_for($OP_MUL, x, ix, incx, a, n, 1)
+        # src: scalarr1_for.jl
+incx = abs(incx)
+@inbounds for i = ix:incx:ix-1+n*incx
+    x[i] = *( a, x[i] )
+end
     else
-        @scale_blas($(string(fscal)), $(elty), x, ix, incx, a, n)
+        # src: blas_scale.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+ccall(($(string(fscal)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), px, &(incx))
     end
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check1(x, ix, 1, n)
+    $isunsafe || begin
+        # src: set1_inc1.jl
+incx = 1
+        # src: fast_check1.jl
+0 < incx || throw(ArgumentError("non-positive increment"))
+0 < ix || throw(BoundsError())
+ix+(n-1)*incx <= length(x) || throw(BoundsError())
+    end
     if n < $NLIM_SCALE #*incx
-        @scalarr1_for_inc1($OP_MUL, x, ix, a, n, 1)
+        # src: scalarr1_for_inc1.jl
+@inbounds for i = ix:ix-1+n
+    x[i] = *( a, x[i] )
+end
     else
-        @scale_blas($(string(fscal)), $(elty), x, ix, 1, a, n)
+        # src: set1_inc1.jl
+incx = 1
+        # src: blas_scale.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+ccall(($(string(fscal)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), px, &(incx))
     end
     return x
 end
@@ -130,47 +150,142 @@ end
 # =======
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
+    $isunsafe || begin
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     mul = max(abs(incx), abs(incy))
     if n < $NLIM_SCALE_OOP1*mul || n*mul > $NLIM_SCALE_OOP2
-        @scalarr1_foroop($OP_MUL, x, ix, incx, y, iy, incy, a, n, 0, 1)
+        # src: scalarr1_foroop.jl
+incx < 0 && (ix = ix+(n-1)*abs(incx))
+incy < 0 && (iy = iy+(n-1)*abs(incy))
+@inbounds for i = 0:n-1
+    x[ix+i*incx] = *( a, y[iy+i*incy] )
+end 
     else
-        @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incy, n)
-        @scale_blas($(string(fscal)), $(elty), x, ix, incx, a, n)
+        # src: blas_copy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(fcopy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), py, &(incy), px, &(incx))
+        # src: blas_scale.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+ccall(($(string(fscal)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), px, &(incx))
     end
     return x
 end
 # inceq
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
+    $isunsafe || begin
+        # src: set2_inceq.jl
+incy = incx
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     mul = abs(incx)
     if n < $NLIM_SCALE_OOP1*mul || n*mul > $NLIM_SCALE_OOP2
-        @scalarr1_foroop_inceq($OP_MUL, x, ix, incx, y, iy, a, n, 1)
+        # src: scalarr1_foroop_inceq.jl
+incx = abs(incx)
+d = iy - ix
+@inbounds for i = ix:incx:ix+(n-1)*incx
+    x[i] = *( a, y[d+i] )
+end
     else
-        @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incx, n)
-        @scale_blas($(string(fscal)), $(elty), x, ix, incx, a, n)
+        # src: set2_inceq.jl
+incy = incx
+        # src: blas_copy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(fcopy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), py, &(incy), px, &(incx))
+        # src: blas_scale.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+ccall(($(string(fscal)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), px, &(incx))
     end
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check2(x, ix, 1, y, iy, 1, n)
+    $isunsafe || begin
+        # src: set2_inc1.jl
+incx = 1
+incy = 1
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     if n < $NLIM_SCALE_OOP1 || n > $NLIM_SCALE_OOP2
-        @scalarr1_foroop_inc1($OP_MUL, x, ix, y, iy, a, n, 1)
+        # src: scalarr1_foroop_inc1.jl
+d = iy - ix
+@inbounds for i = ix:ix-1+n
+    x[i] = *( a, y[d+i] )
+end
     else
-        @memcpy_c($elty, x, ix, y, iy, n)
-        @scale_blas($(string(fscal)), $(elty), x, ix, 1, a, n)
+        # src: set2_inc1.jl
+incx = 1
+incy = 1
+        # src: c_memcpy.jl
+selty = sizeof($(elty))
+px = convert(Ptr{$(elty)},x) + (ix-1)*selty
+py = convert(Ptr{$(elty)},y) + (iy-1)*selty
+ccall(:memcpy, Ptr{Void}, (Ptr{Void}, Ptr{Void}, Uint),
+    px, py, n*selty)
+        # src: blas_scale.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+ccall(($(string(fscal)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), px, &(incx))
     end
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, a::$elty, n::Int)
-    $isunsafe || @fast_check2(x, ix, 1, y, ix, 1, n)
+    $isunsafe || begin
+        # src: set2_inc1ieq.jl
+iy = ix
+incx = 1
+incy = 1
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     if n < $NLIM_SCALE_OOP1 || n > $NLIM_SCALE_OOP2
-        @scalarr1_foroop_inc1ieq($OP_MUL, x, ix, y, a, n, 1)
+        # src: scalarr1_foroop_inc1ieq.jl
+@inbounds for i = ix:ix-1+n
+    x[i] = *( a, y[i] )
+end
     else
-        @memcpy_c($elty, x, ix, y, ix, n)
-        @scale_blas($(string(fscal)), $(elty), x, ix, 1, a, n)
+        # src: set2_inc1ieq.jl
+iy = ix
+incx = 1
+incy = 1
+        # src: c_memcpy.jl
+selty = sizeof($(elty))
+px = convert(Ptr{$(elty)},x) + (ix-1)*selty
+py = convert(Ptr{$(elty)},y) + (iy-1)*selty
+ccall(:memcpy, Ptr{Void}, (Ptr{Void}, Ptr{Void}, Uint),
+    px, py, n*selty)
+        # src: blas_scale.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+ccall(($(string(fscal)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), px, &(incx))
     end
     return x
 end
@@ -179,26 +294,76 @@ end
 # ========
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, n::Int)
-    $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
-    @arr2xy_for($OP_MUL, x, ix, incx, y, iy, incy, n, 0, 1)
+    $isunsafe || begin
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
+    # src: arr2xy_for.jl
+incx < 0 && (ix = ix+(n-1)*abs(incx))
+incy < 0 && (iy = iy+(n-1)*abs(incy))
+@inbounds for i = 0:n-1
+    x[ix+i*incx] = *( x[ix+i*incx], y[iy+i*incy] )
+end 
     return x
 end
 # inceq
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, n::Int)
-    $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
-    @arr2xy_for_inceq($OP_MUL, x, ix, incx, y, iy, n, 1)
+    $isunsafe || begin
+        # src: set2_inceq.jl
+incy = incx
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
+    # src: arr2xy_for_inceq.jl
+incx = abs(incx)
+d = iy - ix
+@inbounds for i = ix:incx:ix+(n-1)*incx
+    x[i] = *( x[i], y[d+i] )
+end
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, n::Int)
-    $isunsafe || @fast_check2(x, ix, 1, y, iy, 1, n)
-    @arr2xy_for_inc1($OP_MUL, x, ix, y, iy, n, 1)
+    $isunsafe || begin
+        # src: set2_inc1.jl
+incx = 1
+incy = 1
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
+    # src: arr2xy_for_inc1.jl
+d = iy - ix
+@inbounds for i = ix:ix-1+n
+    x[i] = *( x[i], y[d+i] )
+end
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, n::Int)
-    $isunsafe || @fast_check2(x, ix, 1, y, ix, 1, n)
-    @arr2xy_for_inc1ieq($OP_MUL, x, ix, y, n, 1)
+    $isunsafe || begin
+        # src: set2_inc1ieq.jl
+iy = ix
+incx = 1
+incy = 1
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
+    # src: arr2xy_for_inc1ieq.jl
+@inbounds for i = ix:ix-1+n
+    x[i] = *( x[i], y[i] )
+end
     return x
 end
 
@@ -207,26 +372,87 @@ end
 
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, z::Array{$elty}, iz::Int, incz::Int, n::Int)
-    $isunsafe || @fast_check3(x, ix, incx, y, iy, incy, z, iz, incz, n)
-    @arr2yz_foroop($OP_MUL, x, ix, incx, y, iy, incy, z, iz, incz, n, 0, 1)
+    $isunsafe || begin
+        # src: fast_check3.jl
+(0 != incx && 0 != incy && 0 != incz) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy && 0 < iz) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+iz+(n-1)*abs(incz) <= length(z) || throw(BoundsError())
+    end
+    # src: arr2yz_foroop.jl
+incx < 0 && (ix = ix+(n-1)*abs(incx))
+incy < 0 && (iy = iy+(n-1)*abs(incy))
+incz < 0 && (iz = iz+(n-1)*abs(incz))
+@inbounds for i = 0:n-1
+    x[ix+i*incx] = *( y[iy+i*incy], z[iz+i*incz] )
+end
     return x
 end
 # inceq
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, z::Array{$elty}, iz::Int, n::Int)
-    $isunsafe || @fast_check3(x, ix, incx, y, iy, incx, z, iz, incx, n)
-    @arr2yz_foroop_inceq($OP_MUL, x, ix, incx, y, iy, z, iz, n, 1)
+    $isunsafe || begin
+        # src: set3_inceq.jl
+incy = incx
+incz = incx
+        # src: fast_check3.jl
+(0 != incx && 0 != incy && 0 != incz) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy && 0 < iz) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+iz+(n-1)*abs(incz) <= length(z) || throw(BoundsError())
+    end
+    # src: arr2yz_foroop_inceq.jl
+incx = abs(incx)
+dy = iy - ix
+dz = iz - ix
+@inbounds for i = ix:incx:ix+(n-1)*incx
+    x[i] = *( y[dy+i], z[dz+i] )
+end
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, z::Array{$elty}, iz::Int, n::Int)
-    $isunsafe || @fast_check3(x, ix, 1, y, iy, 1, z, iz, 1, n)
-    @arr2yz_foroop_inc1($OP_MUL, x, ix, y, iy, z, iz, n, 1)
+    $isunsafe || begin
+        # src: set3_inc1.jl
+incx = 1
+incy = 1
+incz = 1
+        # src: fast_check3.jl
+(0 != incx && 0 != incy && 0 != incz) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy && 0 < iz) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+iz+(n-1)*abs(incz) <= length(z) || throw(BoundsError())
+    end
+    # src: arr2yz_foroop_inc1.jl
+dy = iy - ix
+dz = iz - ix
+@inbounds for i = ix:ix-1+n
+    x[i] = *( y[dy+i], z[dz+i] )
+end
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, z::Array{$elty}, n::Int)
-    $isunsafe || @fast_check3(x, ix, 1, y, ix, 1, z, ix, 1, n)
-    @arr2yz_foroop_inc1ieq($OP_MUL, x, ix, y, z, n, 1)
+    $isunsafe || begin
+        # src: set3_inc1ieq.jl
+iy = ix
+iz = ix
+incx = 1
+incy = 1
+incz = 1
+        # src: fast_check3.jl
+(0 != incx && 0 != incy && 0 != incz) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy && 0 < iz) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+iz+(n-1)*abs(incz) <= length(z) || throw(BoundsError())
+    end
+    # src: arr2yz_foroop_inc1ieq.jl
+@inbounds for i = ix:ix-1+n
+    x[i] = *( y[i], z[i] )
+end 
     return x
 end
 
@@ -244,15 +470,34 @@ for (f, isunsafe) in ( (:fast_add!, false), (:unsafe_fast_add!, true) )
 # =======
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check1(x, ix, incx, n)
-    @scalarr1_for($OP_ADD, x, ix, incx, a, n, 1)
+    $isunsafe || begin
+        # src: fast_check1.jl
+0 < incx || throw(ArgumentError("non-positive increment"))
+0 < ix || throw(BoundsError())
+ix+(n-1)*incx <= length(x) || throw(BoundsError())
+    end
+    # src: scalarr1_for.jl
+incx = abs(incx)
+@inbounds for i = ix:incx:ix-1+n*incx
+    x[i] = +( a, x[i] )
+end
     return x
 end
 
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check1(x, ix, 1, n)
-    @scalarr1_for_inc1($OP_ADD, x, ix, a, n, 1)
+    $isunsafe || begin
+        # src: set1_inc1.jl
+incx = 1
+        # src: fast_check1.jl
+0 < incx || throw(ArgumentError("non-positive increment"))
+0 < ix || throw(BoundsError())
+ix+(n-1)*incx <= length(x) || throw(BoundsError())
+    end
+    # src: scalarr1_for_inc1.jl
+@inbounds for i = ix:ix-1+n
+    x[i] = +( a, x[i] )
+end
     return x
 end
 
@@ -260,26 +505,76 @@ end
 # =======
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
-    @scalarr1_foroop($OP_ADD, x, ix, incx, y, iy, incy, a, n, 0, 1)
+    $isunsafe || begin
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
+    # src: scalarr1_foroop.jl
+incx < 0 && (ix = ix+(n-1)*abs(incx))
+incy < 0 && (iy = iy+(n-1)*abs(incy))
+@inbounds for i = 0:n-1
+    x[ix+i*incx] = +( a, y[iy+i*incy] )
+end 
     return x
 end
 # inceq
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
-    @scalarr1_foroop_inceq($OP_ADD, x, ix, incx, y, iy, a, n, 1)
+    $isunsafe || begin
+        # src: set2_inceq.jl
+incy = incx
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
+    # src: scalarr1_foroop_inceq.jl
+incx = abs(incx)
+d = iy - ix
+@inbounds for i = ix:incx:ix+(n-1)*incx
+    x[i] = +( a, y[d+i] )
+end
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check2(x, ix, 1, y, iy, 1, n)
-    @scalarr1_foroop_inc1($OP_ADD, x, ix, y, iy, a, n, 1)
+    $isunsafe || begin
+        # src: set2_inc1.jl
+incx = 1
+incy = 1
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
+    # src: scalarr1_foroop_inc1.jl
+d = iy - ix
+@inbounds for i = ix:ix-1+n
+    x[i] = +( a, y[d+i] )
+end
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, a::$elty, n::Int)
-    $isunsafe || @fast_check2(x, ix, 1, y, ix, 1, n)
-    @scalarr1_foroop_inc1ieq($OP_ADD, x, ix, y, a, n, 1)
+    $isunsafe || begin
+        # src: set2_inc1ieq.jl
+iy = ix
+incx = 1
+incy = 1
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
+    # src: scalarr1_foroop_inc1ieq.jl
+@inbounds for i = ix:ix-1+n
+    x[i] = +( a, y[i] )
+end
     return x
 end
 
@@ -287,41 +582,124 @@ end
 # =========
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, n::Int)
-    $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
+    $isunsafe || begin
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARR #*mul # || n*mul > $NLIM_SCALEARR
-        @arr2xy_for($OP_ADD, x, ix, incx, y, iy, incy, n, 0, 1)
+        # src: arr2xy_for.jl
+incx < 0 && (ix = ix+(n-1)*abs(incx))
+incy < 0 && (iy = iy+(n-1)*abs(incy))
+@inbounds for i = 0:n-1
+    x[ix+i*incx] = +( x[ix+i*incx], y[iy+i*incy] )
+end 
     else
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, incx, y, iy, incy, 1, n)
+        a = 1
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
 # inceq
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, n::Int)
-    $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
+    $isunsafe || begin
+        # src: set2_inceq.jl
+incy = incx
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARR
-        @arr2xy_for_inceq($OP_ADD, x, ix, incx, y, iy, n, 1)
+        # src: arr2xy_for_inceq.jl
+incx = abs(incx)
+d = iy - ix
+@inbounds for i = ix:incx:ix+(n-1)*incx
+    x[i] = +( x[i], y[d+i] )
+end
     else
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, incx, y, iy, incx, 1, n)
+        a = 1
+        # src: set2_inceq.jl
+incy = incx
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, n::Int)
-    $isunsafe || @fast_check2(x, ix, 1, y, iy, 1, n)
+    $isunsafe || begin
+        # src: set2_inc1.jl
+incx = 1
+incy = 1
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARR
-        @arr2xy_for_inc1($OP_ADD, x, ix, y, iy, n, 1)
+        # src: arr2xy_for_inc1.jl
+d = iy - ix
+@inbounds for i = ix:ix-1+n
+    x[i] = +( x[i], y[d+i] )
+end
     else
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, 1, y, iy, 1, 1, n)
+        a = 1
+        # src: set2_inc1.jl
+incx = 1
+incy = 1
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, n::Int)
-    $isunsafe || @fast_check2(x, ix, 1, y, ix, 1, n)
+    $isunsafe || begin
+        # src: set2_inc1ieq.jl
+iy = ix
+incx = 1
+incy = 1
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARR
-        @arr2xy_for_inc1ieq($OP_ADD, x, ix, y, n, 1)
+        # src: arr2xy_for_inc1ieq.jl
+@inbounds for i = ix:ix-1+n
+    x[i] = +( x[i], y[i] )
+end
     else
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, 1, y, ix, 1, 1, n)
+        a = 1
+        # src: set2_inc1ieq.jl
+iy = ix
+incx = 1
+incy = 1
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
@@ -330,45 +708,167 @@ end
 # =========
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, z::Array{$elty}, iz::Int, incz::Int, n::Int)
-    $isunsafe || @fast_check3(x, ix, incx, y, iy, incy, z, iz, incz, n)
+    $isunsafe || begin
+        # src: fast_check3.jl
+(0 != incx && 0 != incy && 0 != incz) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy && 0 < iz) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+iz+(n-1)*abs(incz) <= length(z) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARR_OOP1 || n > $NLIM_ADDARR_OOP2 #*mul # || n*mul > $NLIM_SCALEARR
-        @arr2yz_foroop($OP_ADD, x, ix, incx, y, iy, incy, z, iz, incz, n, 0, 1)
+        # src: arr2yz_foroop.jl
+incx < 0 && (ix = ix+(n-1)*abs(incx))
+incy < 0 && (iy = iy+(n-1)*abs(incy))
+incz < 0 && (iz = iz+(n-1)*abs(incz))
+@inbounds for i = 0:n-1
+    x[ix+i*incx] = +( y[iy+i*incy], z[iz+i*incz] )
+end
     else
-        @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incy, n)
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, incx, z, iz, incz, 1, n)
+        a = 1
+        # src: blas_copy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(fcopy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), py, &(incy), px, &(incx))
+        y, iy, incy = z, iz, incz
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
 # inceq
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, z::Array{$elty}, iz::Int, n::Int)
-    $isunsafe || @fast_check3(x, ix, incx, y, iy, incx, z, iz, incx, n)
+    $isunsafe || begin
+        # src: set3_inceq.jl
+incy = incx
+incz = incx
+        # src: fast_check3.jl
+(0 != incx && 0 != incy && 0 != incz) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy && 0 < iz) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+iz+(n-1)*abs(incz) <= length(z) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARR_OOP1 || n > $NLIM_ADDARR_OOP2
-        @arr2yz_foroop_inceq($OP_ADD, x, ix, incx, y, iy, z, iz, n, 1)
+        # src: arr2yz_foroop_inceq.jl
+incx = abs(incx)
+dy = iy - ix
+dz = iz - ix
+@inbounds for i = ix:incx:ix+(n-1)*incx
+    x[i] = +( y[dy+i], z[dz+i] )
+end
     else
-        @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incx, n)
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, incx, z, iz, incx, 1, n)
+        a = 1
+        # src: set3_inceq.jl
+incy = incx
+incz = incx
+        # src: blas_copy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(fcopy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), py, &(incy), px, &(incx))
+        y, iy, incy = z, iz, incz
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, z::Array{$elty}, iz::Int, n::Int)
-    $isunsafe || @fast_check3(x, ix, 1, y, iy, 1, z, iz, 1, n)
+    $isunsafe || begin
+        # src: set3_inc1.jl
+incx = 1
+incy = 1
+incz = 1
+        # src: fast_check3.jl
+(0 != incx && 0 != incy && 0 != incz) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy && 0 < iz) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+iz+(n-1)*abs(incz) <= length(z) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARR_OOP1 || n > $NLIM_ADDARR_OOP2
-        @arr2yz_foroop_inc1($OP_ADD, x, ix, y, iy, z, iz, n, 1)
+        # src: arr2yz_foroop_inc1.jl
+dy = iy - ix
+dz = iz - ix
+@inbounds for i = ix:ix-1+n
+    x[i] = +( y[dy+i], z[dz+i] )
+end
     else
-        @memcpy_c($elty, x, ix, y, iy, n)
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, 1, z, iz, 1, 1, n)
+        a = 1
+        # src: set3_inc1.jl
+incx = 1
+incy = 1
+incz = 1
+        # src: c_memcpy.jl
+selty = sizeof($(elty))
+px = convert(Ptr{$(elty)},x) + (ix-1)*selty
+py = convert(Ptr{$(elty)},y) + (iy-1)*selty
+ccall(:memcpy, Ptr{Void}, (Ptr{Void}, Ptr{Void}, Uint),
+    px, py, n*selty)
+        y, iy, incy = z, iz, incz
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, z::Array{$elty}, n::Int)
-    $isunsafe || @fast_check3(x, ix, 1, y, ix, 1, z, ix, 1, n)
+    $isunsafe || begin
+        # src: set3_inc1ieq.jl
+iy = ix
+iz = ix
+incx = 1
+incy = 1
+incz = 1
+        # src: fast_check3.jl
+(0 != incx && 0 != incy && 0 != incz) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy && 0 < iz) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+iz+(n-1)*abs(incz) <= length(z) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARR_OOP1 || n > $NLIM_ADDARR_OOP2
-        @arr2yz_foroop_inc1ieq($OP_ADD, x, ix, y, z, n, 1)
+        # src: arr2yz_foroop_inc1ieq.jl
+@inbounds for i = ix:ix-1+n
+    x[i] = +( y[i], z[i] )
+end 
     else
-        @memcpy_c($elty, x, ix, y, ix, n)
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, 1, z, ix, 1, 1, n)
+        a = 1
+        # src: set3_inc1ieq.jl
+iy = ix
+iz = ix
+incx = 1
+incy = 1
+incz = 1
+        # src: c_memcpy.jl
+selty = sizeof($(elty))
+px = convert(Ptr{$(elty)},x) + (ix-1)*selty
+py = convert(Ptr{$(elty)},y) + (iy-1)*selty
+ccall(:memcpy, Ptr{Void}, (Ptr{Void}, Ptr{Void}, Uint),
+    px, py, n*selty)
+        y, iy, incy = z, iz, incz
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
@@ -386,41 +886,120 @@ for (f, isunsafe) in ( (:fast_addscal!, false), (:unsafe_fast_addscal!, true) )
 # =========
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
+    $isunsafe || begin
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARRSCAL #*mul # || n*mul > $NLIM_SCALEARR
-        @addarrscal_for(x, ix, incx, y, iy, incy, a, n, 0, 1)
+        # src: addarrscal_for.jl
+incx < 0 && (ix = ix+(n-1)*abs(incx))
+incy < 0 && (iy = iy+(n-1)*abs(incy))
+@inbounds for i = 0:n-1
+    x[ix+i*incx] = x[ix+i*incx] + y[iy+i*incy]*a
+end
     else
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, incx, y, iy, incy, a, n)
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
 # inceq
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
+    $isunsafe || begin
+        # src: set2_inceq.jl
+incy = incx
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARRSCAL
-        @addarrscal_for_inceq(x, ix, incx, y, iy, a, n, 1)
+        # src: addarrscal_for_inceq.jl
+incx = abs(incx)
+d = iy - ix
+@inbounds for i = ix:incx:ix+(n-1)*incx
+    x[i] = x[i] + y[d+i]*a
+end
     else
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, incx, y, iy, incx, a, n)
+        # src: set2_inceq.jl
+incy = incx
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check2(x, ix, 1, y, iy, 1, n)
+    $isunsafe || begin
+        # src: set2_inc1.jl
+incx = 1
+incy = 1
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARRSCAL
-        @addarrscal_for_inc1(x, ix, y, iy, a, n, 1)
+        # src: addarrscal_for_inc1.jl
+d = iy - ix
+@inbounds for i = ix:ix-1+n
+    x[i] = x[i] + y[d+i]*a
+end
     else
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, 1, y, iy, 1, a, n)
+        # src: set2_inc1.jl
+incx = 1
+incy = 1
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, a::$elty, n::Int)
-    $isunsafe || @fast_check2(x, ix, 1, y, ix, 1, n)
+    $isunsafe || begin
+        # src: set2_inc1ieq.jl
+iy = ix
+incx = 1
+incy = 1
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARRSCAL
-        @addarrscal_for_inc1ieq(x, ix, y, a, n, 1)
+        # src: addarrscal_for_inc1ieq.jl
+@inbounds for i = ix:ix-1+n
+    x[i] = x[i] + y[i]*a
+end
     else
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, 1, y, ix, 1, a, n)
+        # src: set2_inc1ieq.jl
+iy = ix
+incx = 1
+incy = 1
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
@@ -429,45 +1008,163 @@ end
 # =========
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, z::Array{$elty}, iz::Int, incz::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check3(x, ix, incx, y, iy, incy, z, iz, incz, n)
+    $isunsafe || begin
+        # src: fast_check3.jl
+(0 != incx && 0 != incy && 0 != incz) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy && 0 < iz) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+iz+(n-1)*abs(incz) <= length(z) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARRSCAL_OOP1 || n > $NLIM_ADDARRSCAL_OOP2 #*mul # || n*mul > $NLIM_SCALEARR
-        @addarrscal_foroop(x, ix, incx, y, iy, incy, z, iz, incz, a, n, 0, 1)
+        # src: addarrscal_foroop.jl
+incx < 0 && (ix = ix+(n-1)*abs(incx))
+incy < 0 && (iy = iy+(n-1)*abs(incy))
+incz < 0 && (iz = iz+(n-1)*abs(incz))
+@inbounds for i = 0:n-1
+    x[ix+i*incx] = y[iy+i*incy] + z[iz+i*incz]*a
+end
     else
-        @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incy, n)
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, incx, z, iz, incz, a, n)
+        # src: blas_copy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(fcopy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), py, &(incy), px, &(incx))
+        y, iy, incy = z, iz, incz
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
 # inceq
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, z::Array{$elty}, iz::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check3(x, ix, incx, y, iy, incx, z, iz, incx, n)
+    $isunsafe || begin
+        # src: set3_inceq.jl
+incy = incx
+incz = incx
+        # src: fast_check3.jl
+(0 != incx && 0 != incy && 0 != incz) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy && 0 < iz) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+iz+(n-1)*abs(incz) <= length(z) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARRSCAL_OOP1 || n > $NLIM_ADDARRSCAL_OOP2
-        @addarrscal_foroop_inceq(x, ix, incx, y, iy, z, iz, a, n, 1)
+        # src: addarrscal_foroop_inceq.jl
+incx = abs(incx)
+dy = iy - ix
+dz = iz - ix
+@inbounds for i = ix:incx:ix+(n-1)*incx
+    x[i] = y[dy+i] + z[dz+i]*a
+end
     else
-        @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incx, n)
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, incx, z, iz, incx, a, n)
+        # src: set3_inceq.jl
+incy = incx
+incz = incx
+        # src: blas_copy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(fcopy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), py, &(incy), px, &(incx))
+        y, iy, incy = z, iz, incz
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, z::Array{$elty}, iz::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check3(x, ix, 1, y, iy, 1, z, iz, 1, n)
+    $isunsafe || begin
+        # src: set3_inc1.jl
+incx = 1
+incy = 1
+incz = 1
+        # src: fast_check3.jl
+(0 != incx && 0 != incy && 0 != incz) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy && 0 < iz) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+iz+(n-1)*abs(incz) <= length(z) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARRSCAL_OOP1 || n > $NLIM_ADDARRSCAL_OOP2
-        @addarrscal_foroop_inc1(x, ix, y, iy, z, iz, a, n, 1)
+        # src: addarrscal_foroop_inc1.jl
+dy = iy - ix
+dz = iz - ix
+@inbounds for i = ix:ix-1+n
+    x[i] = y[dy+i] + z[dz+i]*a
+end
     else
-        @memcpy_c($elty, x, ix, y, iy, n)
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, 1, z, iz, 1, a, n)
+        # src: set3_inc1.jl
+incx = 1
+incy = 1
+incz = 1
+        # src: c_memcpy.jl
+selty = sizeof($(elty))
+px = convert(Ptr{$(elty)},x) + (ix-1)*selty
+py = convert(Ptr{$(elty)},y) + (iy-1)*selty
+ccall(:memcpy, Ptr{Void}, (Ptr{Void}, Ptr{Void}, Uint),
+    px, py, n*selty)
+        y, iy, incy = z, iz, incz
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, z::Array{$elty}, a::$elty, n::Int)
-    $isunsafe || @fast_check3(x, ix, 1, y, ix, 1, z, ix, 1, n)
+    $isunsafe || begin
+        # src: set3_inc1ieq.jl
+iy = ix
+iz = ix
+incx = 1
+incy = 1
+incz = 1
+        # src: fast_check3.jl
+(0 != incx && 0 != incy && 0 != incz) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy && 0 < iz) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+iz+(n-1)*abs(incz) <= length(z) || throw(BoundsError())
+    end
     if n < $NLIM_ADDARRSCAL_OOP1 || n > $NLIM_ADDARRSCAL_OOP2
-        @addarrscal_foroop_inc1ieq(x, ix, y, z, a, n, 1)
+        # src: addarrscal_foroop_inc1ieq.jl
+@inbounds for i = ix:ix-1+n
+    x[i] = y[i] + z[i]*a
+end
     else
-        @memcpy_c($elty, x, ix, y, ix, n)
-        @axpy_blas($(string(faxpy)), $(elty), x, ix, 1, z, ix, 1, a, n)
+        # src: set3_inc1ieq.jl
+iy = ix
+iz = ix
+incx = 1
+incy = 1
+incz = 1
+        # src: c_memcpy.jl
+selty = sizeof($(elty))
+px = convert(Ptr{$(elty)},x) + (ix-1)*selty
+py = convert(Ptr{$(elty)},y) + (iy-1)*selty
+ccall(:memcpy, Ptr{Void}, (Ptr{Void}, Ptr{Void}, Uint),
+    px, py, n*selty)
+        y, iy, incy = z, iz, incz
+        # src: blas_axpy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(faxpy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), &(a), py, &(incy), px, &(incx))
     end
     return x
 end
@@ -485,36 +1182,108 @@ for (f, isunsafe) in ( (:fast_copy!, false), (:unsafe_fast_copy!, true) )
 # =====
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, n::Int)
-    $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
+    $isunsafe || begin
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     mul = max(abs(incx), abs(incy))
     if n < $NLIM_COPY1*mul || n*mul > $NLIM_COPY2
-        @copy_foroop(x, ix, incx, y, iy, incy, n, 0, 1)
+        # src: copy_foroop.jl
+incx < 0 && (ix = ix+(n-1)*abs(incx))
+incy < 0 && (iy = iy+(n-1)*abs(incy))
+@inbounds for i = 0:n-1
+    x[ix+i*incx] = y[iy+i*incy]
+end
     else
-        @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incy, n)
+        # src: blas_copy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(fcopy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), py, &(incy), px, &(incx))
     end
     return x
 end
 # inceq
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, n::Int)
-    $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
+    $isunsafe || begin
+        # src: set2_inceq.jl
+incy = incx
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
     mul = abs(incx)
     if n < $NLIM_COPY1*mul || n*mul > $NLIM_COPY2
-        @copy_foroop_inceq(x, ix, incx, y, iy, n, 1)
+        # src: copy_foroop_inceq.jl
+incx = abs(incx)
+d = iy - ix
+@inbounds for i = ix:incx:ix+(n-1)*incx
+    x[i] = y[d+i]
+end
     else
-        @copy_blas($(string(fcopy)), $(elty), x, ix, incx, y, iy, incx, n)
+        # src: set2_inceq.jl
+incy = incx
+        # src: blas_copy.jl
+px = convert(Ptr{$(elty)},x) + (ix-1)*sizeof($(elty))
+py = convert(Ptr{$(elty)},y) + (iy-1)*sizeof($(elty))
+ccall(($(string(fcopy)),libblas), Void,
+    (Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}, Ptr{$(elty)}, Ptr{BlasInt}),
+    &(n), py, &(incy), px, &(incx))
     end
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, n::Int)
-    $isunsafe || @fast_check2(x, ix, 1, y, iy, 1, n)
-    @memcpy_c($elty, x, ix, y, iy, n)
+    $isunsafe || begin
+        # src: set2_inc1.jl
+incx = 1
+incy = 1
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
+    # src: set2_inc1.jl
+incx = 1
+incy = 1
+    # src: c_memcpy.jl
+selty = sizeof($(elty))
+px = convert(Ptr{$(elty)},x) + (ix-1)*selty
+py = convert(Ptr{$(elty)},y) + (iy-1)*selty
+ccall(:memcpy, Ptr{Void}, (Ptr{Void}, Ptr{Void}, Uint),
+    px, py, n*selty)
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, n::Int)
-    $isunsafe || @fast_check2(x, ix, 1, y, ix, 1, n)
-    @memcpy_c($elty, x, ix, y, ix, n)
+    $isunsafe || begin
+        # src: set2_inc1ieq.jl
+iy = ix
+incx = 1
+incy = 1
+        # src: fast_check2.jl
+(0 != incx && 0 != incy) || throw(ArgumentError("zero increment"))
+(0 < ix && 0 < iy) || throw(BoundsError())
+ix+(n-1)*abs(incx) <= length(x) || throw(BoundsError())
+iy+(n-1)*abs(incy) <= length(y) || throw(BoundsError())
+    end
+    # src: set2_inc1ieq.jl
+iy = ix
+incx = 1
+incy = 1
+    # src: c_memcpy.jl
+selty = sizeof($(elty))
+px = convert(Ptr{$(elty)},x) + (ix-1)*selty
+py = convert(Ptr{$(elty)},y) + (iy-1)*selty
+ccall(:memcpy, Ptr{Void}, (Ptr{Void}, Ptr{Void}, Uint),
+    px, py, n*selty)
     return x
 end
 
@@ -532,17 +1301,43 @@ for (f, isunsafe) in ( (:fast_fill!, false), (:unsafe_fast_fill!, true) )
 # =======
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check1(x, ix, incx, n)
-    @fill_for(x, ix, incx, a, n, 1)
+    $isunsafe || begin
+        # src: fast_check1.jl
+0 < incx || throw(ArgumentError("non-positive increment"))
+0 < ix || throw(BoundsError())
+ix+(n-1)*incx <= length(x) || throw(BoundsError())
+    end
+    # src: fill_foroop.jl
+incx = abs(incx)
+@inbounds for i = ix:incx:ix-1+n*incx
+    x[i] = a
+end
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, a::$elty, n::Int)
-    $isunsafe || @fast_check1(x, ix, 1, n)
+    $isunsafe || begin
+        # src: set1_inc1.jl
+incx = 1
+        # src: fast_check1.jl
+0 < incx || throw(ArgumentError("non-positive increment"))
+0 < ix || throw(BoundsError())
+ix+(n-1)*incx <= length(x) || throw(BoundsError())
+    end
     if a == 0 && n > $NLIM_FILL && ZEROFLOAT
-        @memset_c($(elty), x, ix, a, n)
+        # src: set1_inc1.jl
+incx = 1
+        # src: c_memset.jl
+a::Int32 = a
+selty = sizeof($(elty))
+px = convert(Ptr{$(elty)},x) + (ix-1)*selty
+ccall(:memset, Ptr{Void}, (Ptr{Void}, Int32, Csize_t),
+    px, a, n*selty)
     else
-        @fill_for_inc1(x, ix, a, n, 1)
+        # src: fill_foroop_inc1.jl
+@inbounds for i = ix:ix-1+n
+    x[i] = a
+end
     end
     return x
 end
@@ -551,11 +1346,6 @@ end # eval begin
 end # for
 
 end # for
-
-
-
-
-
 
 
 end # module

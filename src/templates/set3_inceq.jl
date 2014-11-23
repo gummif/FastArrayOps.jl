@@ -1,0 +1,2 @@
+incy = incx
+incz = incx
