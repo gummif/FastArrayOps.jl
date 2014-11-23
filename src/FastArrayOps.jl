@@ -158,7 +158,6 @@ function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, a::$elty, n::I
     if n < $NLIM_SCALE_OOP1 || n > $NLIM_SCALE_OOP2
         @scalarr1_foroop_inc1($OP_MUL, x, ix, y, iy, a, n, 1)
     else
-        #@copy_blas($(string(fcopy)), $(elty), x, ix, 1, y, iy, 1, n)
         @memcpy_c($elty, x, ix, y, iy, n)
         @scale_blas($(string(fscal)), $(elty), x, ix, 1, a, n)
     end
@@ -170,7 +169,6 @@ function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, a::$elty, n::Int)
     if n < $NLIM_SCALE_OOP1 || n > $NLIM_SCALE_OOP2
         @scalarr1_foroop_inc1ieq($OP_MUL, x, ix, y, a, n, 1)
     else
-        #@copy_blas($(string(fcopy)), $(elty), x, ix, 1, y, ix, 1, n)
         @memcpy_c($elty, x, ix, y, ix, n)
         @scale_blas($(string(fscal)), $(elty), x, ix, 1, a, n)
     end
@@ -182,41 +180,25 @@ end
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, n::Int)
     $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
-    #if n < $NLIM_SCALEARR #*mul # || n*mul > $NLIM_SCALEARR
-        @arr2xy_for($OP_MUL, x, ix, incx, y, iy, incy, n, 0, 1)
-    #else
-    #    @vecmult_blas($(string(ftbmv)), $(elty), x, ix, incx, y, iy, incy, n)
-    #end
+    @arr2xy_for($OP_MUL, x, ix, incx, y, iy, incy, n, 0, 1)
     return x
 end
 # inceq
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, n::Int)
     $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
-    #if n < $NLIM_SCALEARR
-        @arr2xy_for_inceq($OP_MUL, x, ix, incx, y, iy, n, 1)
-    #else
-    #    @vecmult_blas($(string(ftbmv)), $(elty), x, ix, incx, y, iy, incx, n)
-    #end
+    @arr2xy_for_inceq($OP_MUL, x, ix, incx, y, iy, n, 1)
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, n::Int)
     $isunsafe || @fast_check2(x, ix, 1, y, iy, 1, n)
-    #if n < $NLIM_SCALEARR
-        @arr2xy_for_inc1($OP_MUL, x, ix, y, iy, n, 1)
-    #else
-    #    @vecmult_blas($(string(ftbmv)), $(elty), x, ix, 1, y, iy, 1, n)
-    #end
+    @arr2xy_for_inc1($OP_MUL, x, ix, y, iy, n, 1)
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, n::Int)
     $isunsafe || @fast_check2(x, ix, 1, y, ix, 1, n)
-    #if n < $NLIM_SCALEARR
-        @arr2xy_for_inc1ieq($OP_MUL, x, ix, y, n, 1)
-    #else
-    #    @vecmult_blas($(string(ftbmv)), $(elty), x, ix, 1, y, ix, 1, n)
-    #end
+    @arr2xy_for_inc1ieq($OP_MUL, x, ix, y, n, 1)
     return x
 end
 
@@ -226,41 +208,25 @@ end
 # general
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, z::Array{$elty}, iz::Int, incz::Int, n::Int)
     $isunsafe || @fast_check3(x, ix, incx, y, iy, incy, z, iz, incz, n)
-    #if n < $NLIM_SCALEARR_OOP
-        @arr2yz_foroop($OP_MUL, x, ix, incx, y, iy, incy, z, iz, incz, n, 0, 1)
-    #else
-    #    @vecmultoop_blas($(string(fsbmv)), $(elty), x, ix, incx, y, iy, incy, z, iz, incz, n)
-    #end
+    @arr2yz_foroop($OP_MUL, x, ix, incx, y, iy, incy, z, iz, incz, n, 0, 1)
     return x
 end
 # inceq
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, z::Array{$elty}, iz::Int, n::Int)
     $isunsafe || @fast_check3(x, ix, incx, y, iy, incx, z, iz, incx, n)
-    #if n < $NLIM_SCALEARR_OOP
-        @arr2yz_foroop_inceq($OP_MUL, x, ix, incx, y, iy, z, iz, n, 1)
-    #else
-    #    @vecmultoop_blas($(string(fsbmv)), $(elty), x, ix, incx, y, iy, incx, z, iz, incx, n)
-    #end
+    @arr2yz_foroop_inceq($OP_MUL, x, ix, incx, y, iy, z, iz, n, 1)
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, z::Array{$elty}, iz::Int, n::Int)
     $isunsafe || @fast_check3(x, ix, 1, y, iy, 1, z, iz, 1, n)
-    #if n < $NLIM_SCALEARR_OOP
-        @arr2yz_foroop_inc1($OP_MUL, x, ix, y, iy, z, iz, n, 1)
-    #else
-    #    @vecmultoop_blas($(string(fsbmv)), $(elty), x, ix, 1, y, iy, 1, z, iz, 1, n)
-    #end
+    @arr2yz_foroop_inc1($OP_MUL, x, ix, y, iy, z, iz, n, 1)
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, z::Array{$elty}, n::Int)
     $isunsafe || @fast_check3(x, ix, 1, y, ix, 1, z, ix, 1, n)
-    #if n < $NLIM_SCALEARR_OOP
-        @arr2yz_foroop_inc1ieq($OP_MUL, x, ix, y, z, n, 1)
-    #else
-    #    @vecmultoop_blas($(string(fsbmv)), $(elty), x, ix, 1, y, ix, 1, z, ix, 1, n)
-    #end
+    @arr2yz_foroop_inc1ieq($OP_MUL, x, ix, y, z, n, 1)
     return x
 end
 
@@ -280,7 +246,6 @@ for (f, isunsafe) in ( (:fast_add!, false), (:unsafe_fast_add!, true) )
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, a::$elty, n::Int)
     $isunsafe || @fast_check1(x, ix, incx, n)
     @scalarr1_for($OP_ADD, x, ix, incx, a, n, 1)
-    # no BLAS equivalent
     return x
 end
 
@@ -288,7 +253,6 @@ end
 function ($f)(x::Array{$elty}, ix::Int, a::$elty, n::Int)
     $isunsafe || @fast_check1(x, ix, 1, n)
     @scalarr1_for_inc1($OP_ADD, x, ix, a, n, 1)
-    # no BLAS equivalent
     return x
 end
 
@@ -298,28 +262,24 @@ end
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, incy::Int, a::$elty, n::Int)
     $isunsafe || @fast_check2(x, ix, incx, y, iy, incy, n)
     @scalarr1_foroop($OP_ADD, x, ix, incx, y, iy, incy, a, n, 0, 1)
-    # no BLAS equivalent
     return x
 end
 # inceq
 function ($f)(x::Array{$elty}, ix::Int, incx::Int, y::Array{$elty}, iy::Int, a::$elty, n::Int)
     $isunsafe || @fast_check2(x, ix, incx, y, iy, incx, n)
     @scalarr1_foroop_inceq($OP_ADD, x, ix, incx, y, iy, a, n, 1)
-    # no BLAS equivalent
     return x
 end
 # inc1
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, a::$elty, n::Int)
     $isunsafe || @fast_check2(x, ix, 1, y, iy, 1, n)
     @scalarr1_foroop_inc1($OP_ADD, x, ix, y, iy, a, n, 1)
-    # no BLAS equivalent
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, a::$elty, n::Int)
     $isunsafe || @fast_check2(x, ix, 1, y, ix, 1, n)
     @scalarr1_foroop_inc1ieq($OP_ADD, x, ix, y, a, n, 1)
-    # no BLAS equivalent
     return x
 end
 
@@ -396,7 +356,6 @@ function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, z::Array{$elty
     if n < $NLIM_ADDARR_OOP1 || n > $NLIM_ADDARR_OOP2
         @arr2yz_foroop_inc1($OP_ADD, x, ix, y, iy, z, iz, n, 1)
     else
-        #@copy_blas($(string(fcopy)), $(elty), x, ix, 1, y, iy, 1, n)
         @memcpy_c($elty, x, ix, y, iy, n)
         @axpy_blas($(string(faxpy)), $(elty), x, ix, 1, z, iz, 1, 1, n)
     end
@@ -408,7 +367,6 @@ function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, z::Array{$elty}, n::Int
     if n < $NLIM_ADDARR_OOP1 || n > $NLIM_ADDARR_OOP2
         @arr2yz_foroop_inc1ieq($OP_ADD, x, ix, y, z, n, 1)
     else
-        #@copy_blas($(string(fcopy)), $(elty), x, ix, 1, y, ix, 1, n)
         @memcpy_c($elty, x, ix, y, ix, n)
         @axpy_blas($(string(faxpy)), $(elty), x, ix, 1, z, ix, 1, 1, n)
     end
@@ -497,7 +455,6 @@ function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, z::Array{$elty
     if n < $NLIM_ADDARRSCAL_OOP1 || n > $NLIM_ADDARRSCAL_OOP2
         @addarrscal_foroop_inc1(x, ix, y, iy, z, iz, a, n, 1)
     else
-        #@copy_blas($(string(fcopy)), $(elty), x, ix, 1, y, iy, 1, n)
         @memcpy_c($elty, x, ix, y, iy, n)
         @axpy_blas($(string(faxpy)), $(elty), x, ix, 1, z, iz, 1, a, n)
     end
@@ -509,7 +466,6 @@ function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, z::Array{$elty}, a::$el
     if n < $NLIM_ADDARRSCAL_OOP1 || n > $NLIM_ADDARRSCAL_OOP2
         @addarrscal_foroop_inc1ieq(x, ix, y, z, a, n, 1)
     else
-        #@copy_blas($(string(fcopy)), $(elty), x, ix, 1, y, ix, 1, n)
         @memcpy_c($elty, x, ix, y, ix, n)
         @axpy_blas($(string(faxpy)), $(elty), x, ix, 1, z, ix, 1, a, n)
     end
@@ -553,22 +509,12 @@ end
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, iy::Int, n::Int)
     $isunsafe || @fast_check2(x, ix, 1, y, iy, 1, n)
     @memcpy_c($elty, x, ix, y, iy, n)
-    #if n < $NLIM_COPY1 || n > $NLIM_COPY2
-    #    @copy_foroop_inc1(x, ix, y, iy, n, 1)
-    #else
-    #    @copy_blas($(string(fcopy)), $(elty), x, ix, 1, y, iy, 1, n)
-    #end
     return x
 end
 # inc1ieq
 function ($f)(x::Array{$elty}, ix::Int, y::Array{$elty}, n::Int)
     $isunsafe || @fast_check2(x, ix, 1, y, ix, 1, n)
     @memcpy_c($elty, x, ix, y, ix, n)
-    #if n < $NLIM_COPY1 || n > $NLIM_COPY2
-    #    @copy_foroop_inc1ieq(x, ix, y, n, 1)
-    #else
-    #    @copy_blas($(string(fcopy)), $(elty), x, ix, 1, y, ix, 1, n)
-    #end
     return x
 end
 
