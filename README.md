@@ -1,4 +1,6 @@
 
+*WARNING*: This package is not maintained and is deprecated.
+
 FastArrayOps.jl
 ===============
 
